@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仪器预约系统 - 登录</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .login-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .login-btn {
+            background: #1e88e5;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .login-btn:hover {
+            background: #1976d2;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(30, 136, 229, 0.3);
+        }
+        
+        .login-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .qr-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #eee;
+        }
+        
+        .qr-title {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .qr-code {
+            max-width: 200px;
+            margin: 0 auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1e88e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .success {
+            color: #27ae60;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .user-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 15px;
+            vertical-align: middle;
+        }
+        
+        .user-details {
+            display: inline-block;
+            vertical-align: middle;
+        }
+        
+        .user-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .user-role {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .role-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .role-admin {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .role-super_admin {
+            background: #4ecdc4;
+            color: white;
+        }
+        
+        .role-user {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .action-buttons {
+            margin-top: 20px;
+        }
+        
+        .btn {
+            background: #1e88e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            margin: 0 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            background: #1976d2;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="login-container">
+            <div class="logo">🔬</div>
+            <h1>仪器预约系统</h1>
+            <p class="subtitle">请点击登录</p>
+            
+            <div v-if="!isLoggedIn">
+                <button 
+                    class="login-btn" 
+                    @click="loginWithFeishu" 
+                    :disabled="loading"
+                >
+                    <span v-if="loading" class="loading"></span>
+                    <span v-else>🚀 飞书登录</span>
+                </button>
+                
+                <div v-if="error" class="error">{{ error }}</div>
+                <div v-if="success" class="success">{{ success }}</div>
+            </div>
+            
+            <div v-else class="user-info">
+                <div class="success" style="margin-bottom: 15px; font-size: 16px;">
+                    ✅ 您已登录，正在跳转到首页...
+                </div>
+                <img v-if="user.avatar_url" :src="user.avatar_url" :alt="user.name" class="user-avatar">
+                <div class="user-details">
+                    <div class="user-name">
+                        {{ user.name }}
+                        <span class="role-badge" :class="'role-' + user.role">
+                            {{ getRoleText(user.role) }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn" @click="goToReservation">预约仪器</button>
+                    <button class="btn" @click="goToAdmin" v-if="canAccessAdmin">管理后台</button>
+                    <button class="btn btn-secondary" @click="logout">退出登录</button>
+                </div>
+            </div>
+            
+            <div class="qr-section" v-if="showQRCode">
+                <div class="qr-title">扫码登录</div>
+                <img :src="qrCodeUrl" alt="登录二维码" class="qr-code" v-if="qrCodeUrl">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+        
+        createApp({
+            setup() {
+                const isLoggedIn = ref(false);
+                const user = ref({});
+                const loading = ref(false);
+                const error = ref('');
+                const success = ref('');
+                const qrCodeUrl = ref('');
+                const showQRCode = ref(false);
+                
+                const api = (location.origin && location.protocol !== 'file:') ? 
+                    location.origin : (localStorage.getItem('API') || 'http://127.0.0.1:5011');
+                
+                const canAccessAdmin = computed(() => {
+                    return user.value.role === 'admin' || user.value.role === 'super_admin';
+                });
+                
+                const getRoleText = (role) => {
+                    const roleMap = {
+                        'admin': '超级管理员',
+                        'user': '普通用户'
+                    };
+                    return roleMap[role] || '未知';
+                };
+                
+                const checkLoginStatus = async () => {
+                    console.log('🔍 开始检查登录状态...');
+                    const savedToken = localStorage.getItem('token');
+                    const loginTime = localStorage.getItem('login_time');
+                    
+                    console.log('Token存在:', !!savedToken);
+                    console.log('登录时间:', loginTime);
+                    console.log('API地址:', api);
+                    
+                    if (savedToken && loginTime) {
+                        // 检查token是否过期（30天）
+                        const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+                        const timeDiff = Date.now() - parseInt(loginTime);
+                        console.log('时间差(天):', Math.round(timeDiff / (24 * 60 * 60 * 1000)));
+                        
+                        if (timeDiff < thirtyDays) {
+                            try {
+                                console.log('🔄 正在验证token...');
+                                const response = await axios.get(`${api}/api/auth/me`, {
+                                    headers: { 'Authorization': `Bearer ${savedToken}` }
+                                });
+                                user.value = response.data;
+                                isLoggedIn.value = true;
+                                console.log('✅ 自动登录成功:', user.value.name);
+                                
+                                // 如果已经登录，自动跳转到首页
+                                setTimeout(() => {
+                                    window.location.href = '/home.html';
+                                }, 1000);
+                                return;
+                            } catch (e) {
+                                console.error('❌ Token验证失败:', e);
+                                // token无效，清除
+                                localStorage.removeItem('token');
+                                localStorage.removeItem('login_time');
+                            }
+                        } else {
+                            console.log('⏰ Token已过期');
+                            // token过期，清除
+                            localStorage.removeItem('token');
+                            localStorage.removeItem('login_time');
+                        }
+                    } else {
+                        console.log('❌ 未找到登录信息');
+                    }
+                };
+                
+                const loginWithFeishu = async () => {
+                    loading.value = true;
+                    error.value = '';
+                    success.value = '';
+                    try {
+                        // 在飞书内置浏览器中，必须整页跳转，否则会拉起系统浏览器
+                        const next = '/home.html';
+                        window.location.href = `${api}/api/auth/feishu/login?redirect=1&next=${encodeURIComponent(next)}`;
+                    } catch (e) {
+                        error.value = '登录失败：' + (e.response?.data?.error || e.message);
+                        loading.value = false;
+                    }
+                };
+                
+                const logout = () => {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('login_time');
+                    isLoggedIn.value = false;
+                    user.value = {};
+                    success.value = '已退出登录';
+                };
+                
+                const goToReservation = () => {
+                    window.location.href = '/reserve';
+                };
+                
+                const goToAdmin = () => {
+                    window.location.href = '/admin.html';
+                };
+                
+                // 处理飞书登录回调
+                const handleFeishuCallback = async () => {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const tokenParam = urlParams.get('token');
+                    const successParam = urlParams.get('success');
+                    
+                    if (tokenParam && successParam === 'true') {
+                        // 从URL参数获取token
+                        localStorage.setItem('token', tokenParam);
+                        localStorage.setItem('login_time', Date.now().toString());
+                        token.value = tokenParam;
+                        isLoggedIn.value = true;
+                        success.value = '登录成功！';
+                        
+                        // 获取用户信息
+                        try {
+                            const response = await axios.get(`${api}/api/auth/me`, {
+                                headers: { 'Authorization': `Bearer ${tokenParam}` }
+                            });
+                            user.value = response.data;
+                        } catch (e) {
+                            console.error('Failed to get user info:', e);
+                        }
+                        
+                        // 清除URL参数
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        
+                        // 延迟跳转到首页（可编辑仪器）
+                        setTimeout(() => {
+                            window.location.href = '/home.html';
+                        }, 1500);
+                    }
+                };
+                
+                onMounted(() => {
+                    checkLoginStatus();
+                    handleFeishuCallback();
+                });
+                
+                return {
+                    isLoggedIn,
+                    user,
+                    loading,
+                    error,
+                    success,
+                    qrCodeUrl,
+                    showQRCode,
+                    canAccessAdmin,
+                    getRoleText,
+                    loginWithFeishu,
+                    logout,
+                    goToReservation,
+                    goToAdmin
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>仪器管理</title>
+  <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css" />
+  <link rel="stylesheet" href="shared.css" />
+  <script src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/axios@1.7.4/dist/axios.min.js"></script>
+  <style>
+    html { scrollbar-gutter: stable; }
+    :root {
+      --primary: #007AFF;
+      --primary-hover: #0056CC;
+      --success: #34C759;
+      --warning: #FF9500;
+      --danger: #FF3B30;
+      --background: #F2F2F7;
+      --surface: #FFFFFF;
+      --surface-secondary: #F9F9F9;
+      --text-primary: #1D1D1F;
+      --text-secondary: #86868B;
+      --text-tertiary: #C7C7CC;
+      --border: #E5E5EA;
+      --border-light: #F2F2F7;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-lg: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--background);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 20px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-light);
+      transition: all 0.2s ease;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* Toolbar layout beautify */
+    .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; margin-bottom: 12px; }
+    .field { display: flex; flex-direction: column; gap: 6px; justify-content: flex-end; }
+    .field.inline { flex-direction: row; align-items: center; gap: 8px; }
+    .label { font-size: 12px; color: #475569; font-weight: 600; }
+    .control { height: 44px; display: flex; align-items: center; }
+    .control select, .control input { width: 200px; height: 100%; font-size: 15px; }
+    @media (max-width: 900px) { .control select, .control input { width: 160px; } }
+    @media (max-width: 600px) { .control select, .control input { width: 140px; } }
+    .toolbar .btn { height: 40px; }
+
+    /* Cupertino-like controls */
+    .cu-control { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 6px 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); height: 44px; display:flex; align-items:center; overflow: hidden; }
+    .cu-control select, .cu-control input[type="date"] {
+      width: 100%; height: 100%; background: transparent; border: none; outline: none;
+      font-size: 15px; color: #0F172A; appearance: none; -webkit-appearance: none; padding: 0 28px 0 10px; line-height: 1.2; box-shadow: none;
+    }
+    .cu-control input[type="text"], .cu-control input[type="search"] {
+      width: 100%; height: 100%; background: transparent; border: none; outline: none;
+      font-size: 15px; color: #0F172A; padding: 0 10px; line-height: 1.2; box-shadow: none;
+    }
+    .cu-control:focus-within { border-color: #93C5FD; box-shadow: 0 0 0 3px rgba(59,130,246,0.15), inset 0 1px 0 rgba(255,255,255,0.6); }
+
+    .btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--surface-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--border-light);
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+    }
+
+    .action {
+      border: none;
+      background: none;
+      padding: 8px 12px;
+      color: var(--primary);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .action:hover {
+      background: rgba(0, 122, 255, 0.1);
+    }
+
+    .action.danger {
+      color: var(--danger);
+    }
+
+    .action.danger:hover {
+      background: rgba(255, 59, 48, 0.1);
+    }
+
+    .action.success {
+      color: var(--success);
+    }
+
+    .action.success:hover {
+      background: rgba(52, 199, 89, 0.1);
+    }
+
+    .action.warn {
+      color: var(--warning);
+    }
+
+    .action.warn:hover {
+      background: rgba(255, 149, 0, 0.1);
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+      display: block;
+    }
+
+    a:hover {
+      background: rgba(0, 122, 255, 0.1);
+    }
+
+    a.active {
+      background: rgba(0, 122, 255, 0.1);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* Normalize nav link metrics to avoid per-page height drift */
+    aside .card a,
+    aside .card a.active { line-height: 20px; }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin: 20px 0;
+    }
+
+    .pagination button {
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-primary);
+      font-weight: 500;
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    .pagination button:hover:not(:disabled) {
+      background: var(--surface-secondary);
+      border-color: var(--primary);
+    }
+
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .pagination button.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .pagination-info {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin: 0 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border-light);
+      padding: 16px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    /* Table cell utilities */
+    .cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0; /* allow children to shrink */
+    }
+    .truncate {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      background: var(--surface-secondary);
+      color: #334155;
+      line-height: 1;
+    }
+    .badge.green { background: rgba(52,199,89,0.08); border-color: rgba(34,197,94,0.35); color: #166534; }
+    .badge.yellow { background: rgba(255,149,0,0.08); border-color: rgba(245,158,11,0.35); color: #92400e; }
+    .badge.gray { background: #F1F5F9; border-color: #E2E8F0; color: #334155; }
+
+    /* Table header modern style */
+    th { font-size: 15px; }
+    td { font-size: 15px; }
+    th {
+      background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+      font-weight: 700;
+      color: #334155;
+      border-bottom: 2px solid var(--border);
+      letter-spacing: 0.2px;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    /* Compact buttons and chips */
+    .btn-compact { padding: 6px 10px; font-size: 13px; font-weight: 600; }
+    .btn-ghost-danger { padding: 6px 10px; font-size: 13px; font-weight: 600; color: var(--danger); background: transparent; border: 1px solid rgba(255,59,48,0.35); border-radius: var(--radius-sm); }
+    .btn-ghost-danger:hover { background: rgba(255,59,48,0.06); }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { display: inline-block; padding: 6px 10px; border-radius: 10px; font-size: 15px; font-weight: 600; border: 1px solid var(--border); background: var(--surface-secondary); color: #334155; }
+    .chip-primary { background: rgba(0,122,255,0.06); border-color: rgba(0,122,255,0.25); color: #0352ad; }
+    .chip-muted { background: #F1F5F9; color: #334155; border-color: #E2E8F0; }
+
+    tr:hover {
+      background: var(--surface-secondary);
+    }
+
+    /* Navigation sidebar */
+    aside {
+      position: sticky;
+      top: 20px;
+      height: fit-content;
+    }
+
+    aside .card {
+      padding: 16px;
+    }
+
+    aside h3 {
+      margin: 0 0 16px 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* Smooth animations - limit to non-layout properties to avoid jank */
+    *, *::before, *::after {
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--border-light);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--text-tertiary);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+<div id="app" class="grid">
+  <aside class="card">
+    <h3>仪器预约管理平台</h3>
+    <div style="display:flex; flex-direction:column; gap:4px">
+      <a href="home.html" :class="{active: isActive('home.html')}">预约首页</a>
+      <a href="reservations.html" :class="{active: isActive('reservations.html')}">我的预约</a>
+      <a href="admin_users.html" v-if="isSuperAdmin" :class="{active: isActive('admin_users.html')}">用户管理</a>
+      <a href="admin_instruments.html" v-if="isManagerOrAdmin" :class="{active: isActive('admin_instruments.html')}">仪器管理</a>
+      <a href="admin_reservations.html" v-if="isManagerOrAdmin || isKeeper" :class="{active: isActive('admin_reservations.html')}">预约管理</a>
+      <a href="admin_maintenance.html" v-if="isManagerOrAdmin || isKeeper" :class="{active: isActive('admin_maintenance.html')}">维护管理</a>
+      
+    </div>
+  </aside>
+  <main>
+    <div class="card">
+      <div class="toolbar">
+        <div class="field" style="flex: 0 0 auto;">
+          <span class="label">操作</span>
+          <div class="control" style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" type="button" onclick="history.back()" style="height: 36px; font-size: 14px; padding: 0 12px;">← 返回</button>
+            <a class="btn btn-primary" href="instrument_form.html" style="height: 36px; font-size: 14px; padding: 0 12px;">+ 添加仪器</a>
+          </div>
+        </div>
+        <div class="field" style="flex: 0 0 auto;">
+          <div class="control" style="display:flex; gap:8px; align-items:center;">
+            <div class="cu-control" style="flex:0 0 auto; width:12ch;">
+              <input type="search" v-model="searchQuery" placeholder="搜索" @keyup.enter="search" />
+            </div>
+            <button class="btn btn-primary btn-compact" @click="search">搜索</button>
+          </div>
+        </div>
+      </div>
+      <table style="width:100%; border-collapse:collapse; table-layout:fixed">
+        <thead>
+          <tr>
+            <th style="width:25%; text-align:left; padding:16px; border-bottom:1px solid #e5e7eb">名称</th>
+            <th style="width:20%; text-align:center; padding:16px; border-bottom:1px solid #e5e7eb">保管人</th>
+            <th style="width:15%; text-align:center; padding:16px; border-bottom:1px solid #e5e7eb">状态</th>
+            <th style="width:10%; text-align:center; padding:16px; border-bottom:1px solid #e5e7eb">预约</th>
+            <th style="width:10%; text-align:center; padding:16px; border-bottom:1px solid #e5e7eb">二维码</th>
+            <th style="width:20%; text-align:center; padding:16px; border-bottom:1px solid #e5e7eb">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="i in instruments" :key="i.id">
+            <td>
+              <div class="cell" :title="i.name">
+                <span class="badge" style="max-width:100%; background: rgba(0,122,255,0.06); border-color: rgba(0,122,255,0.25); color: #0352ad;">
+                  <span class="truncate">{{ i.name }}</span>
+                </span>
+              </div>
+            </td>
+            <td style="text-align:center;">
+              <div class="cell" :title="i.keeper_name || '无'" style="justify-content:center;">
+                <span class="badge gray"><span class="truncate" style="max-width: 100%;">{{ i.keeper_name || '无' }}</span></span>
+              </div>
+            </td>
+            <td style="text-align:center;">
+              <div class="cell" style="justify-content:center;">
+                <span class="badge" :class="statusBadgeClass(i.status)">{{ statusText(i.status) }}</span>
+              </div>
+            </td>
+            <td style="text-align:center;">
+              <div class="cell" style="justify-content:center;">
+                <span class="badge" :class="i.booking_enabled === 'false' ? 'gray' : 'green'">{{ i.booking_enabled === 'false' ? '暂停' : '启用' }}</span>
+              </div>
+            </td>
+            <td style="text-align:center; vertical-align: middle;">
+              <button class="btn btn-secondary btn-compact" @click="openQRCode(i)">查看</button>
+            </td>
+            <td style="text-align:center; vertical-align: middle;">
+              <div class="actions" style="justify-content:center;">
+                <a class="btn btn-secondary btn-compact" :href="`instrument_form.html?id=${i.id}`">编辑</a>
+                <button class="btn-ghost-danger" @click="del(i.id)">删除</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <!-- 分页组件 -->
+      <div class="pagination" v-if="pagination && pagination.total_pages > 1">
+        <button @click="goToPage(1)" :disabled="!pagination.has_prev">首页</button>
+        <button @click="goToPage(pagination.page - 1)" :disabled="!pagination.has_prev">上一页</button>
+        
+        <template v-for="page in visiblePages" :key="page">
+          <button 
+            v-if="page !== '...'" 
+            @click="goToPage(page)" 
+            :class="{ active: page === pagination.page }"
+          >
+            {{ page }}
+          </button>
+          <span v-else class="pagination-info">...</span>
+        </template>
+        
+        <button @click="goToPage(pagination.page + 1)" :disabled="!pagination.has_next">下一页</button>
+        <button @click="goToPage(pagination.total_pages)" :disabled="!pagination.has_next">末页</button>
+        
+        <div class="pagination-info">共 {{ pagination.total }} 条，第 {{ pagination.page }} / {{ pagination.total_pages }} 页</div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="label">每页</span>
+          <select v-model="pageSize" @change="onPageSizeChange" style="width:auto; padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface);">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
+          <span class="label">条</span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+const { createApp, ref, computed } = Vue
+createApp({
+  setup(){
+    const api = (location.origin && location.protocol!=='file:') ? location.origin : (localStorage.getItem('API') || 'http://localhost:5011')
+    const user = ref({})
+    const instruments = ref([])
+    const pagination = ref(null)
+    const currentPageNum = ref(1)
+    const pageSize = ref(10)
+    const searchQuery = ref('')
+    let token = localStorage.getItem('token')
+    const headers = () => token ? { 'Authorization': `Bearer ${token}` } : {}
+    
+    // 权限计算属性
+    const storedRole = ref(localStorage.getItem('role') || '')
+    const storedKeeper = ref(localStorage.getItem('is_keeper') || '')
+    const isManagerOrAdmin = computed(() => {
+      const role = user.value.role || storedRole.value
+      return role === 'admin' || role === 'super_admin'
+    })
+    const isSuperAdmin = computed(() => (user.value.role || storedRole.value) === 'super_admin')
+    const isKeeper = computed(() => {
+      const cached = (storedKeeper.value === 'true')
+      return (user.value && user.value.is_keeper) || cached || false
+    })
+
+    // 分页相关计算属性
+    const visiblePages = computed(() => {
+      if (!pagination.value) return []
+      const { page, total_pages } = pagination.value
+      const pages = []
+      
+      if (total_pages <= 7) {
+        // 总页数少于等于7页，显示所有页码
+        for (let i = 1; i <= total_pages; i++) {
+          pages.push(i)
+        }
+      } else {
+        // 总页数大于7页，显示省略号
+        if (page <= 4) {
+          // 当前页在前4页
+          for (let i = 1; i <= 5; i++) {
+            pages.push(i)
+          }
+          pages.push('...')
+          pages.push(total_pages)
+        } else if (page >= total_pages - 3) {
+          // 当前页在后4页
+          pages.push(1)
+          pages.push('...')
+          for (let i = total_pages - 4; i <= total_pages; i++) {
+            pages.push(i)
+          }
+        } else {
+          // 当前页在中间
+          pages.push(1)
+          pages.push('...')
+          for (let i = page - 1; i <= page + 1; i++) {
+            pages.push(i)
+          }
+          pages.push('...')
+          pages.push(total_pages)
+        }
+      }
+      
+      return pages
+    })
+
+    const isActive = (page) => {
+      const current = location.pathname.split('/').pop().split('?')[0].split('#')[0]
+      return current === page
+    }
+
+    async function load(){
+      const { data } = await axios.get(`${api}/api/instruments`, { 
+        params: { 
+          q: searchQuery.value,
+          page: currentPageNum.value,
+          page_size: pageSize.value
+        } 
+      })
+      
+      if (data.items) {
+        // 分页模式
+        instruments.value = data.items
+        pagination.value = data.pagination
+      } else {
+        // 兼容模式
+        instruments.value = data
+        pagination.value = null
+      }
+    }
+    async function del(id){
+      if(!confirm('确定删除该仪器？')) return
+      await axios.delete(`${api}/api/instruments/${id}`, { headers: headers() })
+      load()
+    }
+
+    function openQRCode(instrument){
+      const url = instrument.qrcode_url ? instrument.qrcode_url : `${api}/api/instruments/${instrument.id}/qrcode`
+      window.open(url, '_blank')
+    }
+
+    // 分页相关方法
+    function goToPage(page) {
+      if (page < 1 || page > pagination.value.total_pages) return
+      currentPageNum.value = page
+      load()
+    }
+
+    function search() {
+      currentPageNum.value = 1
+      load()
+    }
+
+    function onPageSizeChange() {
+      currentPageNum.value = 1
+      load()
+    }
+
+    // 获取当前用户信息并缓存角色与保管标记
+    axios.get(`${api}/api/auth/me`, { headers: headers() }).then(r => {
+      user.value = r.data
+      if (r.data && r.data.role) { storedRole.value = r.data.role; localStorage.setItem('role', r.data.role) }
+      localStorage.setItem('is_keeper', r.data.is_keeper ? 'true' : 'false')
+      storedKeeper.value = r.data.is_keeper ? 'true' : 'false'
+      load()
+    }).catch(() => {
+      alert('请先登录')
+      window.location.href = '/login.html'
+    })
+    
+    function statusText(status){
+      if (!status) return 'active'
+      const map = { active: '在用', inactive: '停用', maintenance: '维护中' }
+      return map[String(status).toLowerCase()] || status
+    }
+    function statusBadgeClass(status){
+      const key = String(status || 'active').toLowerCase()
+      if (key === 'active') return 'green'
+      if (key === 'maintenance') return 'yellow'
+      return 'gray'
+    }
+
+    return { 
+      user, instruments, pagination, currentPageNum, pageSize, searchQuery, visiblePages,
+      del, goToPage, search, onPageSizeChange, openQRCode, statusText, statusBadgeClass,
+      isManagerOrAdmin, isSuperAdmin, isKeeper, isActive
+    }
+  }
+}).mount('#app')
+</script>
+</body>
+<script>
+// Smooth same-origin navigation to reduce page jank
+document.addEventListener('click', function (e) {
+  const anchor = e.target && e.target.closest && e.target.closest('a');
+  if (!anchor) return;
+  const url = new URL(anchor.href, location.href);
+  const isLeftClick = (e.button === 0);
+  const noModifier = !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey);
+  if (!isLeftClick || !noModifier) return;
+  if (url.origin !== location.origin) return;
+  e.preventDefault();
+  if (document.startViewTransition) {
+    document.startViewTransition(() => { location.href = url.href; });
+  } else {
+    location.href = url.href;
+  }
+});
+</script>
+</html>
+

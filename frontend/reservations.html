@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>我的预约</title>
+  <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css" />
+  <link rel="stylesheet" href="shared.css" />
+  <script src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/axios@1.7.4/dist/axios.min.js"></script>
+  <style>
+    html { scrollbar-gutter: stable; }
+    :root {
+      --primary: #007AFF;
+      --primary-hover: #0056CC;
+      --success: #34C759;
+      --warning: #FF9500;
+      --danger: #FF3B30;
+      --background: #F2F2F7;
+      --surface: #FFFFFF;
+      --surface-secondary: #F9F9F9;
+      --text-primary: #1D1D1F;
+      --text-secondary: #86868B;
+      --text-tertiary: #C7C7CC;
+      --border: #E5E5EA;
+      --border-light: #F2F2F7;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-lg: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--background);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 20px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-light);
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border-light);
+      padding: 16px;
+      text-align: left;
+    }
+    th { font-size: 15px; }
+    td { font-size: 15px; }
+
+    th {
+      background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+      font-weight: 700;
+      color: #334155;
+      border-bottom: 2px solid var(--border);
+      letter-spacing: 0.2px;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    /* 状态徽章样式 */
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 15px; font-weight: 700; }
+    .badge-pending { background: #FFF7ED; color: #B45309; }
+    .badge-approved { background: #ECFDF5; color: #047857; }
+    .badge-rejected { background: #FEF2F2; color: #BE123C; }
+    .badge-cancelled { background: #F1F5F9; color: #334155; }
+
+    /* 紧凑按钮与信息块 */
+    .btn-compact { padding: 6px 10px; font-size: 13px; font-weight: 600; }
+    .btn-ghost-danger { padding: 6px 10px; font-size: 13px; font-weight: 600; color: var(--danger); background: transparent; border: 1px solid rgba(255,59,48,0.35); border-radius: var(--radius-sm); }
+    .btn-ghost-danger:hover { background: rgba(255,59,48,0.06); }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { display: inline-block; padding: 6px 10px; border-radius: 10px; font-size: 15px; font-weight: 600; border: 1px solid var(--border); background: var(--surface-secondary); color: #334155; }
+    .chip-primary { background: rgba(0,122,255,0.06); border-color: rgba(0,122,255,0.25); color: #0352ad; }
+    .chip-muted { background: #F1F5F9; color: #334155; border-color: #E2E8F0; }
+
+    tr:hover {
+      background: var(--surface-secondary);
+    }
+
+    input, select {
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      font-size: 16px;
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+      display: block;
+    }
+
+    a:hover {
+      background: rgba(0, 122, 255, 0.1);
+    }
+
+    a.active {
+      background: rgba(0, 122, 255, 0.1);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* Normalize nav link metrics to avoid per-page height drift */
+    aside .card a,
+    aside .card a.active { line-height: 20px; }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin: 20px 0;
+    }
+
+    .pagination button {
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-primary);
+      font-weight: 500;
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    .pagination button:hover:not(:disabled) {
+      background: var(--surface-secondary);
+      border-color: var(--primary);
+    }
+
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .pagination button.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .pagination-info {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin: 0 16px;
+    }
+
+    /* Toolbar layout beautify */
+    .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; margin-bottom: 12px; }
+    .field { display: flex; flex-direction: column; gap: 6px; justify-content: flex-end; }
+    .field.inline { flex-direction: row; align-items: center; gap: 8px; }
+    .label { font-size: 12px; color: #475569; font-weight: 600; }
+    .control { height: 44px; display: flex; align-items: center; }
+    .control select, .control input { width: 200px; height: 100%; font-size: 15px; }
+    @media (max-width: 900px) { .control select, .control input { width: 160px; } }
+    @media (max-width: 600px) { .control select, .control input { width: 140px; } }
+    .toolbar .btn { height: 40px; }
+
+    /* Cupertino-like controls */
+    .cu-control { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 6px 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); height: 44px; display:flex; align-items:center; overflow: hidden; }
+    .cu-control select, .cu-control input[type="date"] { 
+      width: 100%; height: 100%; background: transparent; border: none; outline: none; 
+      font-size: 15px; color: #0F172A; appearance: none; -webkit-appearance: none; padding: 0 28px 0 10px; line-height: 1.2; box-shadow: none;
+    }
+    /* Remove native date input chrome so both dates look in one box */
+    .cu-control input[type="date"]::-webkit-datetime-edit, 
+    .cu-control input[type="date"]::-webkit-date-and-time-value { padding: 0; }
+    .cu-control input[type="date"]::-webkit-inner-spin-button { display: none; }
+    .cu-control input[type="date"]::-webkit-clear-button { display: none; }
+    .cu-control input[type="date"]::-webkit-calendar-picker-indicator { opacity: .9; cursor: pointer; position: relative; margin: 0; padding: 0 6px; }
+    .cu-control:focus-within { border-color: #93C5FD; box-shadow: 0 0 0 3px rgba(59,130,246,0.15), inset 0 1px 0 rgba(255,255,255,0.6); }
+    .cu-select select.placeholder { color: #475569; }
+    .date-range { display: flex; align-items: center; justify-content: space-between; height: 100%; width: 100%; }
+    .date-range input[type="date"] { width: 150px; background: transparent; border: 0; flex: 0 0 150px; }
+    .date-sep { width: 1px; height: 20px; background: #E2E8F0; margin: 0 6px; }
+
+    .segmented { display: inline-flex; background: #F5F5F7; border: 1px solid #E5E7EB; border-radius: 12px; padding: 4px; gap: 4px; }
+    .seg-btn { padding: 6px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; color: #334155; background: transparent; border: 1px solid transparent; cursor: pointer; }
+    .seg-btn.active { background: #FFFFFF; border-color: #CBD5E1; box-shadow: 0 1px 2px rgba(0,0,0,0.04); color: #0F172A; }
+    .seg-btn:hover { background: rgba(255,255,255,0.6); }
+    .btn-ghost { background: transparent; color: #334155; border: 1px solid #E5E7EB; border-radius: 10px; }
+    .btn-ghost:hover { background: #F8FAFC; }
+    .btn-outline { background: transparent; color: #0F172A; border: 1px solid #CBD5E1; border-radius: 10px; }
+    .btn-outline:hover { background: #F8FAFC; }
+    .spacer { flex: 1 1 auto; }
+    .toolbar-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 4px; }
+
+    .btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-secondary {
+      background: var(--surface-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--border-light);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #DC2626;
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background: #16A34A;
+      transform: translateY(-1px);
+    }
+
+    /* Navigation sidebar */
+    aside {
+      position: sticky;
+      top: 20px;
+      height: fit-content;
+    }
+
+    aside .card {
+      padding: 16px;
+    }
+
+    aside h3 {
+      margin: 0 0 16px 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* Smooth animations (avoid animating layout-affecting properties) */
+    *, *::before, *::after {
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--border-light);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--text-tertiary);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+<div id="app" class="grid">
+  <aside class="card">
+    <h3>仪器预约管理平台</h3>
+    <div style="display:flex; flex-direction:column; gap:4px">
+      <a href="home.html" :class="{active: isActive('home.html')}">预约首页</a>
+      <a href="reservations.html" :class="{active: isActive('reservations.html')}">我的预约</a>
+      <template v-if="userLoaded">
+        <a href="admin_users.html" v-if="isSuperAdmin" :class="{active: isActive('admin_users.html')}">用户管理</a>
+        <a href="admin_instruments.html" v-if="isManagerOrAdmin" :class="{active: isActive('admin_instruments.html')}">仪器管理</a>
+        <a href="admin_reservations.html" v-if="isManagerOrAdmin || isKeeper" :class="{active: isActive('admin_reservations.html')}">预约管理</a>
+        <a href="admin_maintenance.html" v-if="isManagerOrAdmin || isKeeper" :class="{active: isActive('admin_maintenance.html')}">维护管理</a>
+      </template>
+    </div>
+  </aside>
+  <main>
+    <div class="card">
+      <div class="toolbar">
+        
+        <div class="field" style="min-width:160px; max-width: 200px; flex: 0 0 180px;">
+          <span class="label">仪器</span>
+          <div class="control cu-control cu-select">
+            <select v-model="instrumentId" :class="{placeholder: instrumentId===''}">
+              <option value="">选择仪器…</option>
+              <option v-for="i in instruments" :value="i.id">{{ i.name }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="flex: 0 0 140px; min-width: 120px; max-width: 160px;">
+          <span class="label">状态</span>
+          <div class="control cu-control cu-select">
+            <select v-model="status" :class="{placeholder: status===''}">
+              <option value="">默认</option>
+              <option value="__all__">全部</option>
+              <option value="pending">待审批</option>
+              <option value="approved">已通过</option>
+              <option value="rejected">已驳回</option>
+              <option value="cancelled">已取消</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="min-width:340px; flex: 0 0 380px;">
+          <span class="label">日期范围</span>
+          <div class="control cu-control">
+            <div class="date-range">
+              <input type="date" v-model="startDate" placeholder="开始日期" style="width: 150px; flex: 0 0 150px;">
+              <span style="margin: 0 8px; color: #64748B; flex: 0 0 auto;">-</span>
+              <input type="date" v-model="endDate" placeholder="结束日期" style="width: 150px; flex: 0 0 150px;">
+            </div>
+          </div>
+        </div>
+        <div class="field" style="flex: 0 0 auto;">
+          <span class="label">操作</span>
+          <div class="control cu-control" style="display: flex; gap: 8px; padding: 4px 8px;">
+            <button class="btn" :class="searchLoading ? 'btn-primary' : 'btn-outline'" @click="search" :disabled="searchLoading" style="flex: 1; height: 36px; font-size: 14px; padding: 0 12px;">
+              查询
+            </button>
+            <button class="btn" :class="exportLoading ? 'btn-primary' : 'btn-outline'" @click="exportReservations" :disabled="exportLoading" style="flex: 1; height: 36px; font-size: 14px; padding: 0 12px;">
+              导出
+            </button>
+            <button class="btn btn-outline" @click="clearFilters" style="flex: 1; height: 36px; font-size: 14px; padding: 0 12px;">重置</button>
+          </div>
+        </div>
+      </div>
+      <div style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 8px 0;">提示：默认不显示已取消的记录;筛选条件需点击查询生效</div>
+      <table>
+        <thead><tr><th>仪器</th><th>开始</th><th>结束</th><th>预约人</th><th>状态</th><th style="text-align: center;">操作</th></tr></thead>
+        <tbody>
+          <tr v-for="r in filtered" :key="r.id">
+            <td><span class="chip chip-primary">{{ r.instrument_name }}</span></td>
+            <td><span class="chip chip-muted">{{ formatDateTime(r.start_time) }}</span></td>
+            <td><span class="chip chip-muted">{{ formatDateTime(r.end_time) }}</span></td>
+            <td><span class="chip">{{ r.employee_name }}</span></td>
+            <td>
+              <span :class="'badge ' + getStatusClass(r.status)">{{ getStatusText(r.status) }}</span>
+            </td>
+            <td style="text-align: center; vertical-align: middle;">
+              <button class="btn btn-ghost-danger" @click="cancelReservation(r)" v-if="r.status !== 'cancelled' && r.status !== 'rejected'">取消</button>
+              <span v-else :class="'badge ' + (r.status==='cancelled' ? 'badge-cancelled' : 'badge-rejected')">{{ r.status === 'cancelled' ? '已取消' : '已驳回' }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <!-- 分页组件 -->
+      <div class="pagination" v-if="pagination && pagination.total_pages > 1">
+        <button @click="goToPage(1)" :disabled="!pagination.has_prev">首页</button>
+        <button @click="goToPage(pagination.page - 1)" :disabled="!pagination.has_prev">上一页</button>
+        
+        <template v-for="page in visiblePages" :key="page">
+          <button 
+            v-if="page !== '...'" 
+            @click="goToPage(page)" 
+            :class="{ active: page === pagination.page }"
+          >
+            {{ page }}
+          </button>
+          <span v-else class="pagination-info">...</span>
+        </template>
+        
+        <button @click="goToPage(pagination.page + 1)" :disabled="!pagination.has_next">下一页</button>
+        <button @click="goToPage(pagination.total_pages)" :disabled="!pagination.has_next">末页</button>
+        
+        <div class="pagination-info">
+          共 {{ pagination.total }} 条，第 {{ pagination.page }} / {{ pagination.total_pages }} 页
+        </div>
+        <div class="field inline">
+          <span class="label">每页</span>
+          <div class="control">
+            <select v-model="pageSize" @change="onPageSizeChange" style="width:auto">
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+            <span class="label">条</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const { createApp, ref, computed } = Vue
+createApp({
+  setup(){
+    const api = (location.origin && location.protocol!=='file:') ? location.origin : (localStorage.getItem('API') || 'http://localhost:5011')
+    const user = ref({})
+    const storedRole = ref(localStorage.getItem('role') || '')
+    const storedKeeper = ref(localStorage.getItem('is_keeper') || '')
+    // 立即允许基于缓存信息渲染仪器预约管理平台，避免闪烁
+    const userLoaded = ref(true)
+    const currentPage = ref('reservations')
+    const isActive = (page) => {
+      const current = location.pathname.split('/').pop().split('?')[0].split('#')[0]
+      return current === page
+    }
+    const instruments = ref([])
+    const reservations = ref([])
+    const pagination = ref(null)
+    const currentPageNum = ref(1)
+    const pageSize = ref(10)
+    const instrumentId = ref('')
+    // status: '' 表示默认（前端隐藏已取消）；'__all__' 表示全部（包含已取消）；其他为具体状态
+    const status = ref('')
+    const startDate = ref('')
+    const endDate = ref('')
+    const searchLoading = ref(false)
+    const exportLoading = ref(false)
+    let token = localStorage.getItem('token')
+    const headers = () => token ? { 'Authorization': `Bearer ${token}` } : {}
+    const isManagerOrAdmin = computed(()=> {
+      const role = user.value.role || storedRole.value
+      return role==='admin' || role==='super_admin'
+    })
+    const isSuperAdmin = computed(()=> (user.value.role || storedRole.value)==='super_admin')
+    const isKeeper = computed(()=> {
+      // 先使用缓存的保管员标记，待拉取用户信息后自动校正
+      const cached = (storedKeeper.value === 'true')
+      return (user.value && user.value.is_keeper) || cached || false
+    })
+
+    // 加载仪器列表
+    async function loadInstruments() {
+      try {
+        const { data } = await axios.get(`${api}/api/instruments`)
+        instruments.value = data
+      } catch (e) {
+        console.error('Failed to load instruments:', e)
+      }
+    }
+
+    // 分页相关计算属性
+    const visiblePages = computed(() => {
+      if (!pagination.value) return []
+      const { page, total_pages } = pagination.value
+      const pages = []
+      
+      if (total_pages <= 7) {
+        // 总页数少于等于7页，显示所有页码
+        for (let i = 1; i <= total_pages; i++) {
+          pages.push(i)
+        }
+      } else {
+        // 总页数大于7页，显示省略号
+        if (page <= 4) {
+          // 当前页在前4页
+          for (let i = 1; i <= 5; i++) {
+            pages.push(i)
+          }
+          pages.push('...')
+          pages.push(total_pages)
+        } else if (page >= total_pages - 3) {
+          // 当前页在后4页
+          pages.push(1)
+          pages.push('...')
+          for (let i = total_pages - 4; i <= total_pages; i++) {
+            pages.push(i)
+          }
+        } else {
+          // 当前页在中间
+          pages.push(1)
+          pages.push('...')
+          for (let i = page - 1; i <= page + 1; i++) {
+            pages.push(i)
+          }
+          pages.push('...')
+          pages.push(total_pages)
+        }
+      }
+      
+      return pages
+    })
+
+    function formatDateTime(s){ return new Date(s).toLocaleString() }
+    
+    function getStatusText(status) {
+      const statusMap = {
+        'pending': '待审批',
+        'approved': '已通过',
+        'rejected': '已驳回',
+        'cancelled': '已取消'
+      }
+      return statusMap[status] || status
+    }
+
+    function getStatusClass(status) {
+      const map = {
+        'pending': 'badge-pending',
+        'approved': 'badge-approved',
+        'rejected': 'badge-rejected',
+        'cancelled': 'badge-cancelled'
+      }
+      return map[status] || 'badge'
+    }
+
+    const filtered = computed(()=> {
+      // 直接返回服务端数据，不进行前端筛选
+      return reservations.value
+    })
+
+    async function load(){
+      const ins = await axios.get(`${api}/api/instruments`, { headers: headers() })
+      instruments.value = ins.data
+      
+      const rs = await axios.get(`${api}/api/reservations`, { 
+        params: { 
+          instrument_id: instrumentId.value,
+          status: status.value === '__all__' ? 'all' : (status.value || 'default'),
+          start_date: startDate.value,
+          end_date: endDate.value,
+          page: currentPageNum.value,
+          page_size: pageSize.value
+        },
+        headers: headers()
+      })
+      
+      if (rs.data.items) {
+        // 分页模式
+        reservations.value = rs.data.items
+        pagination.value = rs.data.pagination
+      } else {
+        // 兼容模式
+        reservations.value = rs.data
+        pagination.value = null
+      }
+    }
+
+    // 分页相关方法
+    function goToPage(page) {
+      if (page < 1 || page > pagination.value.total_pages) return
+      currentPageNum.value = page
+      load()
+    }
+
+    async function search() {
+      searchLoading.value = true
+      try {
+        currentPageNum.value = 1
+        await load()
+      } finally {
+        searchLoading.value = false
+      }
+    }
+
+    function onPageSizeChange() {
+      currentPageNum.value = 1
+      load()
+    }
+
+    async function clearFilters() {
+      instrumentId.value = ''
+      status.value = ''
+      startDate.value = ''
+      endDate.value = ''
+      currentPageNum.value = 1
+      await search()
+    }
+
+    // 取消预约功能
+    async function cancelReservation(r) {
+      if (!confirm('确定要取消这个预约吗？')) return
+      try {
+        await axios.post(`${api}/api/reservations/${r.id}/cancel`, {}, { headers: headers() })
+        alert('预约已取消')
+        load()
+      } catch (error) {
+        alert('取消失败: ' + (error.response?.data?.error || error.message))
+      }
+    }
+
+    // 导出预约记录功能
+    async function exportReservations() {
+      // 构建查询条件显示文本
+      let conditions = []
+      if (instrumentId.value) {
+        const instrument = instruments.value.find(i => i.id == instrumentId.value)
+        conditions.push(`仪器: ${instrument ? instrument.name : instrumentId.value}`)
+      }
+      if (status.value && status.value !== '__all__') {
+        const statusText = {
+          'pending': '待审批',
+          'approved': '已通过', 
+          'rejected': '已驳回',
+          'cancelled': '已取消'
+        }[status.value] || status.value
+        conditions.push(`状态: ${statusText}`)
+      } else if (status.value === '__all__') {
+        conditions.push('状态: 全部')
+      } else {
+        conditions.push('状态: 默认（不显示已取消）')
+      }
+      if (startDate.value) conditions.push(`开始日期: ${startDate.value}`)
+      if (endDate.value) conditions.push(`结束日期: ${endDate.value}`)
+      
+      const conditionText = conditions.length > 0 ? '\n\n查询条件:\n' + conditions.join('\n') : ''
+      if (!confirm(`确定要导出预约记录吗？${conditionText}`)) return
+      
+      exportLoading.value = true
+      try {
+        const params = new URLSearchParams()
+        if (instrumentId.value) params.append('instrument_id', instrumentId.value)
+        if (status.value && status.value !== '__all__') params.append('status', status.value)
+        if (startDate.value) params.append('start_date', startDate.value)
+        if (endDate.value) params.append('end_date', endDate.value)
+        
+        // 检测是否在飞书环境中
+        const isFeishu = /Lark|Feishu/i.test(navigator.userAgent || '')
+        
+        if (isFeishu) {
+          // 在飞书环境中，直接打开下载链接
+          const downloadUrl = `${api}/api/reservations/export?${params.toString()}`
+          const token = localStorage.getItem('token')
+          if (token) {
+            // 将token添加到URL参数中，因为飞书环境可能无法发送Authorization header
+            const urlWithToken = `${downloadUrl}${downloadUrl.includes('?') ? '&' : '?'}token=${token}`
+            window.open(urlWithToken, '_blank')
+          } else {
+            window.open(downloadUrl, '_blank')
+          }
+        } else {
+          // 非飞书环境，使用原来的下载方式
+          const response = await axios.get(`${api}/api/reservations/export?${params.toString()}`, {
+            headers: headers(),
+            responseType: 'blob'
+          })
+          
+          // 创建下载链接
+          const url = window.URL.createObjectURL(new Blob([response.data]))
+          const link = document.createElement('a')
+          link.href = url
+          
+          // 生成文件名
+          const now = new Date()
+          const dateStr = now.toISOString().split('T')[0]
+          link.setAttribute('download', `预约记录_${dateStr}.xlsx`)
+          
+          document.body.appendChild(link)
+          link.click()
+          link.remove()
+          window.URL.revokeObjectURL(url)
+        }
+      } catch (error) {
+        console.error('导出失败:', error)
+        alert('导出失败，请稍后重试')
+      } finally {
+        exportLoading.value = false
+      }
+    }
+
+    // 获取当前用户（控制仪器预约管理平台显示），不依赖 login_time
+    (function fetchCurrentUser(){
+      const savedToken = localStorage.getItem('token')
+      if (savedToken) {
+        axios.get(`${api}/api/auth/me`, { headers: headers() }).then(r=> { user.value=r.data; if(r.data.role){ storedRole.value=r.data.role; localStorage.setItem('role', r.data.role) }; localStorage.setItem('is_keeper', r.data.is_keeper ? 'true' : 'false'); storedKeeper.value = r.data.is_keeper ? 'true' : 'false'; userLoaded.value=true }).catch(()=>{ user.value={}; userLoaded.value=true })
+      } else {
+        user.value = {}
+        userLoaded.value = true
+      }
+    })()
+
+    load()
+    return { 
+      instruments, reservations, pagination, currentPageNum, pageSize, instrumentId, status, startDate, endDate,
+      searchLoading, exportLoading, visiblePages, filtered, load, goToPage, search, onPageSizeChange, cancelReservation, exportReservations, clearFilters,
+      formatDateTime, getStatusText, getStatusClass, isManagerOrAdmin, isSuperAdmin, isKeeper, isActive, userLoaded 
+    }
+  }
+}).mount('#app')
+</script>
+<script>
+// Smooth same-origin navigation to reduce page jank
+document.addEventListener('click', function (e) {
+  const anchor = e.target && e.target.closest && e.target.closest('a');
+  if (!anchor) return;
+  const url = new URL(anchor.href, location.href);
+  const isLeftClick = (e.button === 0);
+  const noModifier = !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey);
+  if (!isLeftClick || !noModifier) return;
+  if (url.origin !== location.origin) return;
+  e.preventDefault();
+  if (document.startViewTransition) {
+    document.startViewTransition(() => { location.href = url.href; });
+  } else {
+    location.href = url.href;
+  }
+});
+</script>
+</body>
+</html>
+
+

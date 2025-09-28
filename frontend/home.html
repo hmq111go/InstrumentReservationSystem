@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>仪器管理与预约 - 首页</title>
+  <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css" />
+  <link rel="stylesheet" href="shared.css" />
+  <script src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/axios@1.7.4/dist/axios.min.js"></script>
+  <style>
+    html { scrollbar-gutter: stable; }
+    :root {
+      --primary: #007AFF;
+      --primary-hover: #0056CC;
+      --success: #34C759;
+      --warning: #FF9500;
+      --danger: #FF3B30;
+      --background: #F2F2F7;
+      --surface: #FFFFFF;
+      --surface-secondary: #F9F9F9;
+      --text-primary: #1D1D1F;
+      --text-secondary: #86868B;
+      --text-tertiary: #C7C7CC;
+      --border: #E5E5EA;
+      --border-light: #F2F2F7;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-lg: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--background);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 20px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-light);
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* Toolbar layout beautify */
+    .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; margin-bottom: 12px; }
+    .field { display: flex; flex-direction: column; gap: 6px; justify-content: flex-end; }
+    .field.inline { flex-direction: row; align-items: center; gap: 8px; }
+    .label { font-size: 12px; color: #475569; font-weight: 600; }
+    .control { height: 44px; display: flex; align-items: center; }
+    .control select, .control input { width: 200px; height: 100%; font-size: 15px; }
+    @media (max-width: 900px) { .control select, .control input { width: 160px; } }
+    @media (max-width: 600px) { .control select, .control input { width: 140px; } }
+    .toolbar .btn { height: 40px; }
+
+    /* Cupertino-like controls */
+    .cu-control { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 6px 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); height: 44px; display:flex; align-items:center; overflow: hidden; }
+    .cu-control select, .cu-control input[type="text"] { 
+      width: 100%; height: 100%; background: transparent; border: none; outline: none; 
+      font-size: 15px; color: #0F172A; appearance: none; -webkit-appearance: none; padding: 0 10px; line-height: 1.2; box-shadow: none;
+    }
+    .cu-control:focus-within { border-color: #93C5FD; box-shadow: 0 0 0 3px rgba(59,130,246,0.15), inset 0 1px 0 rgba(255,255,255,0.6); }
+    .cu-select select.placeholder { color: #475569; }
+
+    /* 紧凑按钮与信息块 */
+    .btn-compact { padding: 6px 10px; font-size: 13px; font-weight: 600; }
+    .btn-ghost-danger { padding: 6px 10px; font-size: 13px; font-weight: 600; color: var(--danger); background: transparent; border: 1px solid rgba(255,59,48,0.35); border-radius: var(--radius-sm); }
+    .btn-ghost-danger:hover { background: rgba(255,59,48,0.06); }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { display: inline-block; padding: 6px 10px; border-radius: 10px; font-size: 15px; font-weight: 600; border: 1px solid var(--border); background: var(--surface-secondary); color: #334155; }
+    .chip-primary { background: rgba(0,122,255,0.06); border-color: rgba(0,122,255,0.25); color: #0352ad; }
+    .chip-muted { background: #F1F5F9; color: #334155; border-color: #E2E8F0; }
+
+    .btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--surface-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--border-light);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 12px;
+      background: var(--border-light);
+      color: var(--text-secondary);
+    }
+
+    .badge.active {
+      background: rgba(52, 199, 89, 0.1);
+      color: var(--success);
+    }
+
+    .badge.suspended {
+      background: rgba(255, 59, 48, 0.1);
+      color: var(--danger);
+    }
+
+    .badge.maintenance {
+      background: rgba(255, 149, 0, 0.1);
+      color: var(--warning);
+    }
+
+    .badge.high-usage {
+      background: rgba(255, 59, 48, 0.1);
+      color: var(--danger);
+    }
+
+    .badge.medium-usage {
+      background: rgba(255, 149, 0, 0.1);
+      color: var(--warning);
+    }
+
+    .badge.low-usage {
+      background: rgba(52, 199, 89, 0.1);
+      color: var(--success);
+    }
+
+    .badge.very-low-usage {
+      background: var(--border-light);
+      color: var(--text-tertiary);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border-light);
+      padding: 16px;
+      text-align: left;
+    }
+    th { font-size: 15px; }
+    td { font-size: 15px; }
+
+    th {
+      background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+      font-weight: 700;
+      color: #334155;
+      border-bottom: 2px solid var(--border);
+      letter-spacing: 0.2px;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr:hover {
+      background: var(--surface-secondary);
+    }
+
+    input, select {
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      font-size: 16px;
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+      display: block;
+    }
+
+    a:hover {
+      background: rgba(0, 122, 255, 0.1);
+    }
+
+    a.active {
+      background: rgba(0, 122, 255, 0.1);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* Normalize nav link metrics to avoid per-page height drift */
+    aside .card a,
+    aside .card a.active { line-height: 20px; }
+
+    .link-btn {
+      border: none;
+      background: none;
+      padding: 0;
+      color: var(--primary);
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .link-btn:hover {
+      color: var(--primary-hover);
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin: 20px 0;
+    }
+
+    .pagination button {
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-primary);
+      font-weight: 500;
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    .pagination button:hover:not(:disabled) {
+      background: var(--surface-secondary);
+      border-color: var(--primary);
+    }
+
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .pagination button.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .pagination-info {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin: 0 16px;
+    }
+
+    /* Navigation sidebar */
+    aside {
+      position: sticky;
+      top: 20px;
+      height: fit-content;
+    }
+
+    aside .card {
+      padding: 16px;
+    }
+
+    aside h3 {
+      margin: 0 0 16px 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* Smooth animations (avoid animating layout-affecting properties) */
+    *, *::before, *::after {
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--border-light);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--text-tertiary);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+<div id="app" class="grid">
+  <aside class="card">
+    <h3>仪器预约管理平台</h3>
+    <div style="display:flex; flex-direction:column; gap:4px">
+      <a href="home.html" :class="{active: isActive('home.html')}">预约首页</a>
+      <a href="reservations.html" :class="{active: isActive('reservations.html')}">我的预约</a>
+      <template v-if="userLoaded">
+        <a href="admin_users.html" v-if="isSuperAdmin" :class="{active: isActive('admin_users.html')}">用户管理</a>
+        <a href="admin_instruments.html" v-if="isManagerOrAdmin" :class="{active: isActive('admin_instruments.html')}">仪器管理</a>
+        <a href="admin_reservations.html" v-if="isManagerOrAdmin || isKeeper" :class="{active: isActive('admin_reservations.html')}">预约管理</a>
+        <a href="admin_maintenance.html" v-if="isManagerOrAdmin || isKeeper" :class="{active: isActive('admin_maintenance.html')}">维护管理</a>
+      </template>
+    </div>
+  </aside>
+  <main>
+    <div class="card">
+      <div class="toolbar">
+        <div class="field" style="min-width: 200px; max-width: 300px; flex: 0 0 250px;">
+          <span class="label">搜索</span>
+          <div class="control cu-control">
+            <input type="text" v-model="q" placeholder="搜索：仪器名/品牌/型号" ref="searchInput" />
+          </div>
+        </div>
+        <div class="field" style="flex: 0 0 auto;">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-primary" @click="search" style="height: 44px; font-size: 15px; padding: 0 20px;">搜索</button>
+            <button class="btn btn-secondary" @click="resetFilters" style="height: 44px; font-size: 15px; padding: 0 16px;">重置</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:16px; padding:12px; background:var(--surface-secondary); border-radius:var(--radius-sm); font-size:14px; color:var(--text-secondary)">
+        💡 预约率说明：基于今日工作时间计算，显示已预约时间段占总可预约时间的百分比。下一个使用者显示即将使用该仪器的用户和时间。
+      </div>
+        <table>
+          <thead>
+            <tr>
+              <th>图片</th>
+              <th>仪器名</th>
+              <th>位置</th>
+              <th>保管人</th>
+              <th>状态</th>
+              <th>今日预约率</th>
+              <th>下一个使用者</th>
+              <th style="text-align: center;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="i in items" :key="i.id">
+              <td>
+                <div v-if="i.photo_url" style="width:60px;height:45px;overflow:hidden;border-radius:var(--radius-sm);border:1px solid var(--border)">
+                  <img :src="i.photo_url" :alt="i.name" style="width:100%;height:100%;object-fit:cover" />
+                </div>
+                <div v-else style="width:60px;height:45px;background:var(--surface-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);font-size:12px">
+                  无图片
+                </div>
+              </td>
+              <td><span class="chip chip-primary">{{ i.name }}</span></td>
+              <td><span class="chip chip-muted">{{ i.location }}</span></td>
+              <td><span class="chip">{{ i.keeper_name }}</span></td>
+              <td>
+                <span v-if="i.current_maintenance" class="badge maintenance">{{ getMaintenanceTypeText(i.current_maintenance.type) }}</span>
+                <span v-else-if="i.booking_enabled === 'false'" class="badge suspended">暂停预约</span>
+                <span v-else :class="`badge ${i.status}`">{{ getStatusText(i.status) }}</span>
+              </td>
+              <td>
+                <div v-if="i.booking_enabled !== 'false' && !i.current_maintenance" style="display:flex; align-items:center; gap:8px">
+                  <span :class="getBookingRateClass(i.id)">{{ getBookingRateText(i.id) }}</span>
+                  <div v-if="instrumentStats[i.id]" style="font-size:12px; color:var(--text-secondary)">
+                    ({{ instrumentStats[i.id].bookedSlots }}/{{ instrumentStats[i.id].totalSlots }})
+                  </div>
+                </div>
+                <div v-else-if="i.current_maintenance" style="color:var(--warning)">
+                 
+                </div>
+                <div v-else style="color:var(--text-tertiary)">-</div>
+              </td>
+              <td>
+                <div v-if="i.current_maintenance" style="font-size:12px; color:var(--warning)">
+                  
+                </div>
+                <div v-else-if="i.booking_enabled !== 'false'" style="font-size:14px; line-height:1.3;">
+                  <div style="text-align:center; font-weight:600;">{{ getNextUserName(i.id) }}</div>
+                  <div>{{ getNextUserTimeCn(i.id) }}</div>
+                </div>
+                <div v-else style="color:var(--text-tertiary)">-</div>
+              </td>
+              <td style="text-align: center; vertical-align: middle;">
+                <button class="btn btn-primary" @click="goReserve(i.id)" v-if="i.booking_enabled !== 'false' && !i.current_maintenance" style="height: 32px; font-size: 13px; padding: 0 12px;">预约</button>
+                <span v-else style="color: var(--text-tertiary); font-size: 13px;">-</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- 分页组件 -->
+      <div class="pagination" v-if="pagination && pagination.total_pages > 1">
+        <button @click="goToPage(1)" :disabled="!pagination.has_prev">首页</button>
+        <button @click="goToPage(pagination.page - 1)" :disabled="!pagination.has_prev">上一页</button>
+        
+        <template v-for="page in visiblePages" :key="page">
+          <button 
+            v-if="page !== '...'" 
+            @click="goToPage(page)" 
+            :class="{ active: page === pagination.page }"
+          >
+            {{ page }}
+          </button>
+          <span v-else class="pagination-info">...</span>
+        </template>
+        
+        <button @click="goToPage(pagination.page + 1)" :disabled="!pagination.has_next">下一页</button>
+        <button @click="goToPage(pagination.total_pages)" :disabled="!pagination.has_next">末页</button>
+        
+        <div class="pagination-info">
+          共 {{ pagination.total }} 条，第 {{ pagination.page }} / {{ pagination.total_pages }} 页
+        </div>
+        <div class="field inline">
+          <span class="label">每页</span>
+          <div class="control">
+            <select v-model="pageSize" @change="onPageSizeChange" style="width:auto">
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+            <span class="label">条</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, computed } = Vue
+createApp({
+  setup(){
+    const api = ref((location.origin && location.origin!=='null' && location.protocol!=='file:') ? location.origin : (localStorage.getItem('API')||'http://127.0.0.1:5011'))
+    const user = ref({})
+    const storedRole = ref(localStorage.getItem('role') || '')
+    const storedKeeper = ref(localStorage.getItem('is_keeper') || '')
+    // 立即允许基于缓存信息渲染仪器预约管理平台，避免闪烁
+    const userLoaded = ref(true)
+    const currentPageName = ref('home')
+    const isActive = (page) => {
+      const current = location.pathname.split('/').pop().split('?')[0].split('#')[0]
+      return current === page
+    }
+    const q = ref('')
+    const searchInput = ref(null)
+    const category = ref('')
+    const items = ref([])
+    const pagination = ref(null)
+    const currentPage = ref(1)
+    const pageSize = ref(10)
+    const instrumentStats = ref({}) // 存储每个仪器的统计信息
+    let token = localStorage.getItem('token')
+    const headers = () => token ? { 'Authorization': `Bearer ${token}` } : {}
+    const isManagerOrAdmin = computed(()=> {
+      const role = user.value.role || storedRole.value
+      return role==='admin' || role==='super_admin'
+    })
+    const isSuperAdmin = computed(()=> (user.value.role || storedRole.value)==='super_admin')
+    const isKeeper = computed(()=> {
+      // 先使用缓存的保管员标记，待拉取用户信息后自动校正
+      const cached = (storedKeeper.value === 'true')
+      return (user.value && user.value.is_keeper) || cached || false
+    })
+
+    // 分页相关计算属性
+    const visiblePages = computed(() => {
+      if (!pagination.value) return []
+      const { page, total_pages } = pagination.value
+      const pages = []
+      
+      if (total_pages <= 7) {
+        // 总页数少于等于7页，显示所有页码
+        for (let i = 1; i <= total_pages; i++) {
+          pages.push(i)
+        }
+      } else {
+        // 总页数大于7页，显示省略号
+        if (page <= 4) {
+          // 当前页在前4页
+          for (let i = 1; i <= 5; i++) {
+            pages.push(i)
+          }
+          pages.push('...')
+          pages.push(total_pages)
+        } else if (page >= total_pages - 3) {
+          // 当前页在后4页
+          pages.push(1)
+          pages.push('...')
+          for (let i = total_pages - 4; i <= total_pages; i++) {
+            pages.push(i)
+          }
+        } else {
+          // 当前页在中间
+          pages.push(1)
+          pages.push('...')
+          for (let i = page - 1; i <= page + 1; i++) {
+            pages.push(i)
+          }
+          pages.push('...')
+          pages.push(total_pages)
+        }
+      }
+      
+      return pages
+    })
+
+    function canEditInstrument(instrument) {
+      if (isManagerOrAdmin.value) return true
+      return instrument.keeper_id === user.value.id
+    }
+
+    function canManageInstrument(instrument) {
+      if (isManagerOrAdmin.value) return true
+      return instrument.keeper_id === user.value.id
+    }
+
+    function getStatusText(status) {
+      const statusMap = {
+        'active': '正常',
+        'suspended': '暂停',
+        'maintenance': '维护中'
+      }
+      return statusMap[status] || '未知'
+    }
+
+    function getMaintenanceTypeText(type) {
+      const typeMap = {
+        'general': '日常维护',
+        'repair': '维修',
+        'calibration': '校准',
+        'inspection': '巡检'
+      }
+      return typeMap[type] || '维护'
+    }
+
+    function getStatusClass(status) {
+      // 现在直接使用badge类，不需要这个函数了
+      return 'badge'
+    }
+
+    async function toggleBooking(instrument) {
+      const newStatus = instrument.booking_enabled === 'false' ? 'true' : 'false'
+      try {
+        await axios.put(`${api.value}/api/instruments/${instrument.id}/booking`, 
+          { booking_enabled: newStatus }, 
+          { headers: headers() })
+        load()
+        alert(newStatus === 'true' ? '已启用预约' : '已暂停预约')
+      } catch (error) {
+        alert('操作失败: ' + (error.response?.data?.error || error.message))
+      }
+    }
+
+    // 计算预约率和下一个使用者
+    async function calculateInstrumentStats(instrumentId) {
+      try {
+        // 使用北京时间计算今天与明天的日期（避免跨时区误差）
+        const getBeijingDates = () => {
+          const now = new Date()
+          const utcMillis = now.getTime() + now.getTimezoneOffset() * 60000
+          const bjNow = new Date(utcMillis + 8 * 60 * 60000)
+          const bjYear = bjNow.getUTCFullYear()
+          const bjMonth = (bjNow.getUTCMonth() + 1).toString().padStart(2, '0')
+          const bjDay = bjNow.getUTCDate().toString().padStart(2, '0')
+          const todayStr = `${bjYear}-${bjMonth}-${bjDay}`
+          // 计算北京时间的明天
+          const bjTomorrow = new Date(bjNow.getTime() + 24 * 60 * 60 * 1000)
+          const tYear = bjTomorrow.getUTCFullYear()
+          const tMonth = (bjTomorrow.getUTCMonth() + 1).toString().padStart(2, '0')
+          const tDay = bjTomorrow.getUTCDate().toString().padStart(2, '0')
+          const tomorrowStr = `${tYear}-${tMonth}-${tDay}`
+          return { todayStr, tomorrowStr }
+        }
+        const { todayStr, tomorrowStr } = getBeijingDates()
+        
+        // 使用新的统计API
+        const { data: stats } = await axios.get(`${api.value}/api/instruments/${instrumentId}/stats`, {
+          params: {
+            start_date: todayStr,
+            end_date: tomorrowStr
+          },
+          headers: headers()
+        })
+        
+        console.log(`仪器 ${instrumentId} 统计:`, stats)
+        
+        return {
+          bookingRate: stats.booking_rate,
+          nextUser: stats.next_user,
+          totalSlots: stats.total_slots,
+          bookedSlots: stats.booked_slots
+        }
+      } catch (error) {
+        console.error('计算仪器统计信息失败:', error)
+        return {
+          bookingRate: 0,
+          nextUser: null,
+          totalSlots: 0,
+          bookedSlots: 0
+        }
+      }
+    }
+
+    async function load(){
+      const { data } = await axios.get(`${api.value}/api/instruments`, { 
+        params: { 
+          q: q.value, 
+          category: category.value,
+          page: currentPage.value,
+          page_size: pageSize.value
+        } 
+      })
+      items.value = data.items
+      pagination.value = data.pagination
+      
+      // 同步维护状态（管理员权限）
+      if (isManagerOrAdmin.value) {
+        try {
+          await axios.post(`${api.value}/api/sync-maintenance-status`, {}, { headers: headers() })
+        } catch (e) {
+          // 忽略同步失败，不影响正常显示
+        }
+      }
+      
+      // 为每个仪器计算统计信息（并行处理以提高性能）
+      const statsPromises = data.items
+        .filter(item => item.booking_enabled !== 'false')
+        .map(async (item) => {
+          const stats = await calculateInstrumentStats(item.id)
+          return { id: item.id, stats }
+        })
+      
+      const statsResults = await Promise.all(statsPromises)
+      statsResults.forEach(({ id, stats }) => {
+        instrumentStats.value[id] = stats
+      })
+    }
+
+    async function del(id){
+      if(!confirm('确定删除该仪器？')) return
+      await axios.delete(`${api.value}/api/instruments/${id}`, { headers: headers() })
+      load()
+    }
+
+    function goReserve(instrumentId){
+      const target = `index.html#iid=${instrumentId}`
+      if (document.startViewTransition) {
+        document.startViewTransition(() => { location.href = target })
+      } else {
+        location.href = target
+      }
+    }
+
+    // 首页不再需要二维码按钮
+
+    // 分页相关方法
+    function goToPage(page) {
+      if (page < 1 || page > pagination.value.total_pages) return
+      currentPage.value = page
+      load()
+    }
+
+    function resetPagination() {
+      currentPage.value = 1
+    }
+
+    function search() {
+      resetPagination()
+      load()
+    }
+
+    function resetFilters(){
+      q.value = ''
+      category.value = ''
+      resetPagination()
+      load()
+      try{ searchInput.value && searchInput.value.focus && searchInput.value.focus() }catch(e){}
+    }
+
+    function onPageSizeChange() {
+      resetPagination()
+      load()
+    }
+
+    // 格式化时间显示
+    function formatTime(timeStr) {
+      if (!timeStr) return ''
+      const date = new Date(timeStr)
+      return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+    }
+
+    // 获取预约率显示文本
+    function getBookingRateText(instrumentId) {
+      const stats = instrumentStats.value[instrumentId]
+      if (!stats) return '计算中...'
+      return `${stats.bookingRate}%`
+    }
+
+    function getNextUserName(instrumentId){
+      const stats = instrumentStats.value[instrumentId]
+      if(!stats || !stats.nextUser) return '无'
+      return stats.nextUser.name || '无'
+    }
+    function getNextUserTimeCn(instrumentId){
+      const stats = instrumentStats.value[instrumentId]
+      if(!stats || !stats.nextUser) return ''
+      const nu = stats.nextUser
+      const start = nu.start_time || nu.startTime
+      const end = nu.end_time || nu.endTime
+      if(!start) return ''
+      const sd = new Date(start)
+      const sm = sd.getMonth()+1
+      const sday = sd.getDate()
+      const sh = sd.getHours().toString().padStart(2,'0')
+      const smin = sd.getMinutes().toString().padStart(2,'0')
+      if(end){
+        const ed = new Date(end)
+        const eh = ed.getHours().toString().padStart(2,'0')
+        const emin = ed.getMinutes().toString().padStart(2,'0')
+        return `${sm}月${sday}日 ${sh}:${smin} - ${eh}:${emin}`
+      }
+      return `${sm}月${sday}日 ${sh}:${smin}`
+    }
+
+    // 获取预约率颜色分类
+    function getBookingRateClass(instrumentId) {
+      const stats = instrumentStats.value[instrumentId]
+      if (!stats) return 'badge'
+      
+      const rate = stats.bookingRate
+      if (rate >= 80) return 'badge high-usage'
+      if (rate >= 50) return 'badge medium-usage'
+      if (rate >= 20) return 'badge low-usage'
+      return 'badge very-low-usage'
+    }
+
+    // 刷新统计信息
+    async function refreshStats() {
+      const enabledItems = items.value.filter(item => item.booking_enabled !== 'false')
+      const statsPromises = enabledItems.map(async (item) => {
+        const stats = await calculateInstrumentStats(item.id)
+        return { id: item.id, stats }
+      })
+      
+      const statsResults = await Promise.all(statsPromises)
+      statsResults.forEach(({ id, stats }) => {
+        instrumentStats.value[id] = stats
+      })
+    }
+
+    // 调试统计信息
+    async function debugStats() {
+      console.log('=== 开始调试统计信息 ===')
+      const enabledItems = items.value.filter(item => item.booking_enabled !== 'false')
+      
+      for (const item of enabledItems) {
+        console.log(`\n--- 调试仪器: ${item.name} (ID: ${item.id}) ---`)
+        
+        try {
+          // 北京时区的今天与明天
+          const now = new Date()
+          const utcMillis = now.getTime() + now.getTimezoneOffset() * 60000
+          const bjNow = new Date(utcMillis + 8 * 60 * 60000)
+          const y = bjNow.getUTCFullYear()
+          const m = (bjNow.getUTCMonth() + 1).toString().padStart(2, '0')
+          const d = bjNow.getUTCDate().toString().padStart(2, '0')
+          const todayStr = `${y}-${m}-${d}`
+          const bjTomorrow = new Date(bjNow.getTime() + 24 * 60 * 60 * 1000)
+          const ty = bjTomorrow.getUTCFullYear()
+          const tm = (bjTomorrow.getUTCMonth() + 1).toString().padStart(2, '0')
+          const td = bjTomorrow.getUTCDate().toString().padStart(2, '0')
+          const tomorrowStr = `${ty}-${tm}-${td}`
+          
+          console.log('查询参数:', {
+            instrument_id: item.id,
+            start_date: todayStr,
+            end_date: tomorrowStr
+          })
+          
+          // 获取统计信息
+          const { data: stats } = await axios.get(`${api.value}/api/instruments/${item.id}/stats`, {
+            params: {
+              start_date: todayStr,
+              end_date: tomorrowStr
+            },
+            headers: headers()
+          })
+          console.log('统计API响应:', stats)
+          
+          // 获取仪器信息
+          const { data: instrument } = await axios.get(`${api.value}/api/instruments/${item.id}`)
+          console.log('仪器信息:', instrument)
+          
+          // 获取原始预约数据（用于对比）
+          const { data: response } = await axios.get(`${api.value}/api/reservations`, {
+            params: {
+              instrument_id: item.id,
+              start_date: todayStr,
+              end_date: tomorrowStr
+            },
+            headers: headers()
+          })
+          
+          const reservations = response.items || response
+          console.log('原始预约API响应:', response)
+          console.log('预约数据:', reservations)
+          
+          // 分析approved预约
+          const approvedReservations = reservations.filter(r => r.status === 'approved')
+          console.log('Approved预约:', approvedReservations)
+          
+        } catch (error) {
+          console.error(`调试仪器 ${item.id} 失败:`, error)
+        }
+      }
+      
+      console.log('=== 调试完成 ===')
+    }
+
+    // 处理从回调带回的 token
+    ;(function handleCallbackToken(){
+      const params = new URLSearchParams(window.location.search)
+      const t = params.get('token')
+      const ok = params.get('success')
+      if(t && ok === 'true'){
+        localStorage.setItem('token', t)
+        localStorage.setItem('login_time', Date.now().toString())
+        token = t
+        // 清理URL
+        window.history.replaceState({}, document.title, window.location.pathname)
+        // token 刷新后，立即拉取用户并刷新列表
+        fetchCurrentUser()
+        load()
+      }
+    })()
+
+    async function fetchCurrentUser(){
+      const savedToken = localStorage.getItem('token')
+      if (savedToken) {
+        try{
+          const r = await axios.get(`${api.value}/api/auth/me`, { headers: headers() })
+          user.value = r.data
+          if(r.data.role){ storedRole.value = r.data.role; localStorage.setItem('role', r.data.role) }
+          // 缓存保管员标记，供首屏仪器预约管理平台渲染使用
+          localStorage.setItem('is_keeper', r.data.is_keeper ? 'true' : 'false')
+          storedKeeper.value = r.data.is_keeper ? 'true' : 'false'
+        }catch(e){ user.value = {}; userLoaded.value = true }
+      } else {
+        user.value = {}
+      }
+    }
+
+    // 首次拉取用户
+    fetchCurrentUser().then(()=>{ userLoaded.value = true; load() })
+    // 若首次未拿到角色，短延迟重试一次，避免偶发时序导致首页看不到管理入口
+    setTimeout(() => {
+      if (!(user.value && user.value.role) && !storedRole.value) {
+        const savedToken = localStorage.getItem('token')
+        if (savedToken) {
+          axios.get(`${api.value}/api/auth/me`, { headers: headers() })
+            .then(r => { user.value = r.data; if(r.data.role){ storedRole.value = r.data.role; localStorage.setItem('role', r.data.role) }; localStorage.setItem('is_keeper', r.data.is_keeper ? 'true' : 'false'); storedKeeper.value = r.data.is_keeper ? 'true' : 'false'; userLoaded.value = true; load() })
+            .catch(() => { userLoaded.value = true })
+        }
+      }
+    }, 500)
+
+    // 探测 API 地址，确保首页能连通后端
+    async function probeAPI(){
+      const candidates = [api.value, localStorage.getItem('API')||'', 'http://127.0.0.1:5011', 'http://localhost:5011'].filter(Boolean)
+      for(const base of candidates){
+        try{
+          await axios.get(`${base}/api/health`)
+          api.value = base
+          localStorage.setItem('API', base)
+          break
+        }catch(e){ /* try next */ }
+      }
+    }
+
+    // 先探测 API 再加载
+    probeAPI().then(()=>{ fetchCurrentUser().then(()=> { userLoaded.value = true; load() }) })
+
+    // 自动加载（兜底）
+    load()
+    
+    // 每5分钟自动刷新统计信息
+    setInterval(() => {
+      if (items.value.length > 0) {
+        refreshStats()
+      }
+    }, 5 * 60 * 1000) // 5分钟
+    return { 
+      api, user, userLoaded, isManagerOrAdmin, isSuperAdmin, isKeeper, q, category, items, 
+      pagination, currentPage, pageSize, visiblePages, instrumentStats,
+      load, del, canEditInstrument, canManageInstrument, getStatusText, getMaintenanceTypeText, getStatusClass, 
+      toggleBooking, isActive, goToPage, search, resetFilters, onPageSizeChange, goReserve,
+      getBookingRateText, getNextUserName, getNextUserTimeCn, getBookingRateClass, formatTime, refreshStats, debugStats
+    }
+  }
+}).mount('#app')
+</script>
+</script>
+<script>
+// Smooth same-origin navigation to reduce page jank
+document.addEventListener('click', function (e) {
+  const anchor = e.target && e.target.closest && e.target.closest('a');
+  if (!anchor) return;
+  const url = new URL(anchor.href, location.href);
+  // Only intercept left-click, same-origin, no modifier keys
+  const isLeftClick = (e.button === 0);
+  const noModifier = !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey);
+  if (!isLeftClick || !noModifier) return;
+  if (url.origin !== location.origin) return;
+  e.preventDefault();
+  if (document.startViewTransition) {
+    document.startViewTransition(() => { location.href = url.href; });
+  } else {
+    location.href = url.href;
+  }
+});
+</script>
+</body>
+</html>
+
+

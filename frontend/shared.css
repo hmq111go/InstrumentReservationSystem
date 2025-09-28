@@ -1,0 +1,44 @@
+/* Shared layout and navigation styles to keep pages consistent */
+
+/* Stable scrollbar to avoid layout shift */
+html { scrollbar-gutter: stable; }
+
+/* Grid layout used by most pages */
+.layout, .grid {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Sidebar card and nav links */
+aside { position: sticky; top: 20px; height: fit-content; }
+aside .card { padding: 16px; }
+aside h3 { margin: 0 0 16px 0; font-size: 18px; font-weight: 700; }
+
+/* Normalize nav link metrics */
+aside .card a,
+aside .card a.active {
+  display: block;
+  padding: 12px 16px;
+  border-radius: 8px;
+  line-height: 20px;
+}
+
+/* Active/hover states */
+aside .card a { color: var(--primary, #007AFF); text-decoration: none; }
+aside .card a:hover { background: rgba(0, 122, 255, 0.1); }
+aside .card a.active { background: rgba(0, 122, 255, 0.1); color: var(--primary, #007AFF); font-weight: 600; }
+
+/* Limit transitions to non-layout properties */
+*, *::before, *::after {
+  transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+/* Buttons and inputs default transitions */
+.btn, input, select, a, .card, .pagination button {
+  transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+

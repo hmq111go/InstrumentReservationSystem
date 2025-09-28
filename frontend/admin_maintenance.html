@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>维护管理</title>
+  <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css" />
+  <link rel="stylesheet" href="shared.css" />
+  <script src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/axios@1.7.4/dist/axios.min.js"></script>
+  <style>
+    html { scrollbar-gutter: stable; }
+    :root {
+      --primary: #007AFF;
+      --primary-hover: #0056CC;
+      --success: #34C759;
+      --warning: #FF9500;
+      --danger: #FF3B30;
+      --background: #F2F2F7;
+      --surface: #FFFFFF;
+      --surface-secondary: #F9F9F9;
+      --text-primary: #1D1D1F;
+      --text-secondary: #86868B;
+      --text-tertiary: #C7C7CC;
+      --border: #E5E5EA;
+      --border-light: #F2F2F7;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+    }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; background: var(--background); color: var(--text-primary); margin: 0; padding: 20px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    .grid { display: grid; grid-template-columns: 200px 1fr; gap: 16px; max-width: 1400px; margin: 0 auto; }
+    .card { background: var(--surface); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); border: 1px solid var(--border-light); transition: all 0.2s ease; }
+    .card:hover { box-shadow: var(--shadow-lg); }
+    /* Toolbar layout to match 预约管理 */
+    .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; margin-bottom: 12px; }
+    .field { display: flex; flex-direction: column; gap: 6px; justify-content: flex-end; }
+    .field.inline { flex-direction: row; align-items: center; gap: 8px; }
+    .label { font-size: 12px; color: #475569; font-weight: 600; }
+    .control { height: 44px; display: flex; align-items: center; }
+    .control select, .control input { width: 200px; height: 100%; font-size: 15px; }
+    @media (max-width: 900px) { .control select, .control input { width: 160px; } }
+    @media (max-width: 600px) { .control select, .control input { width: 140px; } }
+
+    /* Cupertino-like controls */
+    .cu-control { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 6px 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); height: 44px; display:flex; align-items:center; overflow: hidden; }
+    .cu-control select, .cu-control input[type="date"] { width: 100%; height: 100%; background: transparent; border: none; outline: none; font-size: 15px; color: #0F172A; appearance: none; -webkit-appearance: none; padding: 0 28px 0 10px; line-height: 1.2; box-shadow: none; }
+    .cu-control input[type="date"]::-webkit-datetime-edit, .cu-control input[type="date"]::-webkit-date-and-time-value { padding: 0; }
+    .cu-control input[type="date"]::-webkit-inner-spin-button { display: none; }
+    .cu-control input[type="date"]::-webkit-clear-button { display: none; }
+    .cu-control input[type="date"]::-webkit-calendar-picker-indicator { opacity: .9; cursor: pointer; position: relative; margin: 0; padding: 0 6px; }
+    .cu-control:focus-within { border-color: #93C5FD; box-shadow: 0 0 0 3px rgba(59,130,246,0.15), inset 0 1px 0 rgba(255,255,255,0.6); }
+    .cu-select select.placeholder { color: #475569; }
+    .date-range { display: flex; align-items: center; justify-content: space-between; height: 100%; width: 100%; }
+    .date-range input[type="date"] { width: 150px; background: transparent; border: 0; flex: 0 0 150px; }
+
+    /* Buttons consistent with 预约管理 */
+    .btn { padding: 12px 20px; border: none; border-radius: var(--radius-sm); font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn-secondary { background: var(--surface-secondary); color: var(--text-primary); border: 1px solid var(--border); }
+    .btn-danger { background: var(--danger); color:#fff; }
+    .btn-outline { background: transparent; color: #0F172A; border: 1px solid #CBD5E1; border-radius: 10px; }
+    .btn-compact { padding: 6px 10px; font-size: 13px; font-weight: 600; }
+    a { color: var(--primary); text-decoration: none; padding: 12px 16px; border-radius: var(--radius-sm); transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease; display: block; }
+    /* Inputs */
+    .input { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: 14px; }
+    .filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip { background: var(--surface-secondary); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; font-size: 12px; color:#555; }
+
+    /* Table aligned with 预约管理 */
+    table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius-sm); overflow: hidden; }
+    th, td { text-align: left; padding: 16px; border-bottom: 1px solid var(--border-light); }
+    thead th { background: var(--surface-secondary); z-index: 1; font-size: 14px; color: var(--text-primary); text-transform: none; border-bottom: 1px solid var(--border); position: sticky; top: 0; }
+    tbody tr:hover { background: var(--surface-secondary); }
+    /* 操作列居中（第9列） */
+    .ops-cell { text-align: center; vertical-align: middle; }
+    .ops { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; }
+    table th:nth-child(9), table td:nth-child(9) { text-align: center; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid transparent; }
+    .badge-type-general { background: #eef6ff; color: #0366d6; border-color: #cce4ff; }
+    .badge-type-repair { background: #fff5f5; color: #c53030; border-color: #fed7d7; }
+    .badge-type-calibration { background: #f0fff4; color: #2f855a; border-color: #c6f6d5; }
+    .badge-type-inspection { background: #fffaf0; color: #c05621; border-color: #feebc8; }
+    .badge-status-done { background: #f0fff4; color: #2f855a; border-color: #c6f6d5; }
+    .badge-status-pending { background: #fffaf0; color: #c05621; border-color: #feebc8; }
+    a:hover { background: rgba(0, 122, 255, 0.1); }
+    a.active { background: rgba(0, 122, 255, 0.1); color: var(--primary); font-weight: 600; }
+    aside { position: sticky; top: 20px; height: fit-content; }
+    aside .card { padding: 16px; }
+    aside h3 { margin: 0 0 16px 0; font-size: 18px; font-weight: 700; color: var(--text-primary); }
+    /* Normalize nav link metrics to match other pages */
+    aside .card a,
+    aside .card a.active { line-height: 20px; }
+
+    /* 简易弹窗样式 */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { width: 720px; max-width: calc(100% - 32px); background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); border: 1px solid var(--border-light); overflow: hidden; }
+    .modal header { padding: 16px 20px; border-bottom: 1px solid var(--border-light); font-weight: 700; display:flex; align-items:center; justify-content: space-between; }
+    .modal .content { padding: 16px 20px; }
+    .modal .actions { display: flex; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--border-light); justify-content: flex-end; }
+    .form label { display: grid; grid-template-rows: auto auto; gap: 6px; }
+    .form label span { font-size: 13px; color: #666; }
+    .form input, .form select, .form textarea { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: 14px; }
+    .form textarea { min-height: 88px; resize: vertical; }
+    .row-2 { grid-column: 1 / span 2; }
+  </style>
+  <script>
+    // 辅助：平滑同域跳转
+    document.addEventListener('click', function (e) {
+      const anchor = e.target && e.target.closest && e.target.closest('a');
+      if (!anchor) return;
+      const url = new URL(anchor.href, location.href);
+      const isLeftClick = (e.button === 0);
+      const noModifier = !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey);
+      if (!isLeftClick || !noModifier) return;
+      if (url.origin !== location.origin) return;
+      e.preventDefault();
+      if (document.startViewTransition) {
+        document.startViewTransition(() => { location.href = url.href; });
+      } else {
+        location.href = url.href;
+      }
+    });
+  </script>
+</head>
+<body>
+<div id="app" class="grid">
+  <aside class="card">
+    <h3>仪器预约管理平台</h3>
+    <div style="display:flex; flex-direction:column; gap:4px">
+      <a href="home.html" :class="{active: isActive('home.html')}">预约首页</a>
+      <a href="reservations.html" :class="{active: isActive('reservations.html')}">我的预约</a>
+      <template v-if="userLoaded">
+        <a href="admin_users.html" v-if="isSuperAdmin" :class="{active: isActive('admin_users.html')}">用户管理</a>
+        <a href="admin_instruments.html" v-if="isManagerOrAdmin" :class="{active: isActive('admin_instruments.html')}">仪器管理</a>
+        <a href="admin_reservations.html" v-if="isManagerOrAdmin || isKeeper" :class="{active: isActive('admin_reservations.html')}">预约管理</a>
+        <a href="admin_maintenance.html" v-if="isManagerOrAdmin || isKeeper" :class="{active: isActive('admin_maintenance.html')}">维护管理</a>
+      </template>
+    </div>
+  </aside>
+
+  <main>
+    <div class="card">
+      <div class="toolbar">
+        <div class="field" style="min-width:160px; max-width: 200px; flex: 0 0 180px;">
+          <span class="label">仪器</span>
+          <div class="control cu-control cu-select">
+            <select v-model="filterInstrumentId" :class="{placeholder: filterInstrumentId===''}">
+              <option value="">选择仪器…</option>
+              <option v-for="i in instruments" :key="i.id" :value="i.id">{{ i.name }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="flex: 0 0 160px; min-width: 140px; max-width: 180px;">
+          <span class="label">类型</span>
+          <div class="control cu-control cu-select">
+            <select v-model="filterType">
+              <option value="">全部</option>
+              <option value="general">日常维护</option>
+              <option value="repair">维修</option>
+              <option value="calibration">校准</option>
+              <option value="inspection">巡检</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="min-width:340px; flex: 0 0 380px;">
+          <span class="label">日期范围</span>
+          <div class="control cu-control">
+            <div class="date-range">
+              <input type="date" v-model="filterStartDate" placeholder="开始日期" style="width: 150px; flex: 0 0 150px;">
+              <span style="margin: 0 8px; color: #64748B; flex: 0 0 auto;">-</span>
+              <input type="date" v-model="filterEndDate" placeholder="结束日期" style="width: 150px; flex: 0 0 150px;">
+            </div>
+          </div>
+        </div>
+        <div class="field" style="flex: 0 0 auto;">
+          <span class="label">操作</span>
+          <div class="control cu-control" style="display: flex; gap: 8px; padding: 4px 8px;">
+            <button class="btn" @click="search" style="flex: 1; height: 36px; font-size: 14px; padding: 0 12px;" :class="'btn-outline'">查询</button>
+            <button class="btn btn-outline" @click="clearFilters" style="flex: 1; height: 36px; font-size: 14px; padding: 0 12px;">重置</button>
+          </div>
+        </div>
+        <div class="field" style="flex: 1 1 auto; min-width: 160px;">
+          <span class="label">快捷</span>
+          <div class="control" style="display:flex; gap: 8px; align-items:center;">
+            <button class="btn btn-primary" v-if="isManagerOrAdmin || isKeeper" @click="openCreate">+ 增加维护记录</button>
+            <button class="btn btn-primary" v-if="isManagerOrAdmin || isKeeper" @click="exportMaintenance">导出维护记录</button>
+          </div>
+        </div>
+      </div>
+      <div style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 8px 0;">提示：筛选条件需点击查询生效</div>
+
+      <table v-if="records && records.length">
+        <thead>
+          <tr>
+            <th>仪器</th>
+            <th>开始日期</th>
+            <th>结束日期</th>
+            <th>类型</th>
+            <th>描述</th>
+            <th>状态</th>
+            <th>创建人</th>
+            <th>创建时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="m in records" :key="m.id">
+            <td>{{ getInstrumentName(m.instrument_id) }}</td>
+            <td>
+              <template v-if="m.maintenance_start">
+                {{ formatDate(m.maintenance_start) }}
+              </template>
+              <template v-else>{{ formatDate(m.maintenance_date) }}</template>
+            </td>
+            <td>
+              <template v-if="m.maintenance_end">
+                {{ formatDate(m.maintenance_end) }}
+              </template>
+              <template v-else>
+                <span style="color: #999;">-</span>
+              </template>
+            </td>
+            <td><span :class="['badge', typeBadgeClass(m.maintenance_type)]">{{ getTypeText(m.maintenance_type) }}</span></td>
+            <td>{{ m.description }}</td>
+            <td>
+              <span :class="['badge', statusBadgeClass(m.status)]">{{ m.status === 'done' ? '完成' : '进行中' }}</span>
+              <button v-if="(isManagerOrAdmin || isKeeper) && m.status==='pending'" class="btn btn-secondary" style="padding:4px 8px;margin-left:8px" @click="markDone(m)">标记完成</button>
+            </td>
+            <td>{{ getUserName(m.created_by) }}</td>
+            <td>{{ formatDate(m.created_at) }}</td>
+            <td class="ops-cell">
+              <div class="ops">
+                <button v-if="isManagerOrAdmin || isKeeper" class="btn btn-danger btn-compact" @click="deleteRecord(m)">删除</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div v-else style="padding:32px; color: #6e6e73; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px;">
+        <div style="font-size:16px; font-weight:600;">暂无维护记录</div>
+        <div style="font-size:13px;">尝试调整筛选条件</div>
+      </div>
+
+      <div class="pagination" v-if="pagination && pagination.total_pages > 1">
+        <button @click="goToPage(1)" :disabled="!pagination.has_prev">首页</button>
+        <button @click="goToPage(pagination.page - 1)" :disabled="!pagination.has_prev">上一页</button>
+        <template v-for="page in visiblePages" :key="page">
+          <button v-if="page !== '...'" @click="goToPage(page)" :class="{ active: page === pagination.page }">{{ page }}</button>
+          <span v-else class="pagination-info">...</span>
+        </template>
+        <button @click="goToPage(pagination.page + 1)" :disabled="!pagination.has_next">下一页</button>
+        <button @click="goToPage(pagination.total_pages)" :disabled="!pagination.has_next">末页</button>
+        <div class="pagination-info">共 {{ pagination.total }} 条，第 {{ pagination.page }} / {{ pagination.total_pages }} 页</div>
+      </div>
+    </div>
+
+    <!-- 弹窗：新增维护记录 -->
+    <div class="modal-overlay" v-if="showCreate" @click.self="cancel">
+      <div class="modal">
+        <header>
+          <span>添加维护记录</span>
+          <button class="btn btn-secondary" @click="cancel">✕</button>
+        </header>
+        <div class="content">
+          <div class="form" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label><span>仪器</span>
+              <select v-model="form.instrument_id">
+                <option value="" disabled>请选择仪器</option>
+                <option v-for="i in instruments" :key="i.id" :value="i.id">{{ i.name }}</option>
+              </select>
+            </label>
+            <label><span>维护开始日期</span>
+              <input v-model="form.maintenance_start" type="date" />
+            </label>
+            <label><span>类型</span>
+              <select v-model="form.maintenance_type">
+                <option value="general">日常维护</option>
+                <option value="repair">维修</option>
+                <option value="calibration">校准</option>
+                <option value="inspection">巡检</option>
+              </select>
+            </label>
+            <label><span>状态</span>
+              <select v-model="form.status">
+                <option value="done">完成</option>
+                <option value="pending">进行中</option>
+              </select>
+            </label>
+            <label class="row-2"><span>描述</span><textarea v-model="form.description"></textarea></label>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary" @click="cancel">取消</button>
+          <button class="btn" style="background: var(--primary); color:#fff" @click="save">保存</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const { createApp, ref, computed } = Vue
+createApp({
+  setup(){
+    const isActive = (page) => {
+      const current = location.pathname.split('/').pop().split('?')[0].split('#')[0]
+      return current === page
+    }
+    const api = (location.origin && location.protocol!== 'file:') ? location.origin : (localStorage.getItem('API') || 'http://localhost:5011')
+    const user = ref({})
+    const storedRole = ref(localStorage.getItem('role') || '')
+    const storedKeeper = ref(localStorage.getItem('is_keeper') || '')
+    const userLoaded = ref(true)
+    let token = localStorage.getItem('token')
+    const headers = () => token ? { 'Authorization': `Bearer ${token}` } : {}
+
+    const isManagerOrAdmin = computed(() => {
+      const role = user.value.role || storedRole.value
+      return role === 'admin' || role === 'super_admin'
+    })
+    const isSuperAdmin = computed(() => (user.value.role || storedRole.value) === 'super_admin')
+    const isKeeper = computed(() => {
+      const cached = (storedKeeper.value === 'true')
+      return (user.value && user.value.is_keeper) || cached || false
+    })
+
+    // 维护数据
+    const instruments = ref([])
+    const userMap = ref({})
+    const records = ref([])
+    const pagination = ref(null)
+    const filterInstrumentId = ref('')
+    const filterType = ref('')
+    const filterStartDate = ref('')
+    const filterEndDate = ref('')
+    const currentPage = ref(1)
+    const pageSize = ref(10)
+
+    const visiblePages = computed(() => {
+      if (!pagination.value) return []
+      const { page, total_pages } = pagination.value
+      const pages = []
+      if (total_pages <= 7) { for (let i=1;i<=total_pages;i++) pages.push(i) }
+      else if (page <= 4) { for (let i=1;i<=5;i++) pages.push(i); pages.push('...'); pages.push(total_pages) }
+      else if (page >= total_pages - 3) { pages.push(1); pages.push('...'); for (let i=total_pages-4;i<=total_pages;i++) pages.push(i) }
+      else { pages.push(1); pages.push('...'); for (let i=page-1;i<=page+1;i++) pages.push(i); pages.push('...'); pages.push(total_pages) }
+      return pages
+    })
+
+    function getInstrumentName(id){ const it = instruments.value.find(x=>x.id===id); return it ? it.name : id }
+    function getUserName(id){ const u = userMap.value[id]; return u ? u.name : id }
+    function getTypeText(t){ return ({general:'日常维护',repair:'维修',calibration:'校准',inspection:'巡检'})[t] || t }
+    function formatDateTime(s){ return s ? new Date(s).toLocaleString() : '' }
+    function formatDate(s){ return s ? new Date(s).toLocaleDateString() : '' }
+    function typeBadgeClass(t){ return ({general:'badge-type-general', repair:'badge-type-repair', calibration:'badge-type-calibration', inspection:'badge-type-inspection'})[t] || 'badge-type-general' }
+    function statusBadgeClass(s){ return s==='done' ? 'badge-status-done' : 'badge-status-pending' }
+
+    async function loadInstruments(){
+      // 管理/超管：全部；保管人：仅manageable=true
+      const manageable = (isManagerOrAdmin.value ? '' : 'true')
+      const url = manageable ? `${api}/api/instruments?manageable=true` : `${api}/api/instruments`
+      const { data } = await axios.get(url, { headers: headers() })
+      instruments.value = data.items ? data.items : data
+    }
+
+    async function loadUsers(){
+      try {
+        // 仅管理员接口可获取用户清单；保管人缺少清单时，用当前用户填充
+        if (isManagerOrAdmin.value){
+          const { data } = await axios.get(`${api}/api/users`, { headers: headers() })
+          const map = {}
+          for (const u of data) map[u.id] = u
+          userMap.value = map
+        } else {
+          const map = {}; map[user.value.id] = user.value; userMap.value = map
+        }
+      } catch (e) { /* 忽略失败 */ }
+    }
+
+    async function loadMaintenance(){
+      const params = { page: currentPage.value, page_size: pageSize.value }
+      if (filterInstrumentId.value) params.instrument_id = filterInstrumentId.value
+      if (filterType.value) params.maintenance_type = filterType.value
+      if (filterStartDate.value) params.start_date = filterStartDate.value
+      if (filterEndDate.value) params.end_date = filterEndDate.value
+      const { data } = await axios.get(`${api}/api/maintenance`, { params, headers: headers() })
+      if (data && data.items){ records.value = data.items; pagination.value = data.pagination } else { records.value = data; pagination.value = null }
+    }
+
+    function goToPage(p){ if (!pagination.value) return; if (p<1 || p>pagination.value.total_pages) return; currentPage.value = p; loadMaintenance() }
+    function search(){ currentPage.value = 1; loadMaintenance() }
+    function refresh(){ loadMaintenance() }
+    function clearFilters(){ filterInstrumentId.value=''; filterType.value=''; filterStartDate.value=''; filterEndDate.value=''; search() }
+
+    // 创建维护记录
+    const showCreate = ref(false)
+    const form = ref({ instrument_id: '', maintenance_type: 'general', maintenance_start: '', maintenance_date: '', description: '', status: 'pending' })
+    function openCreate(){ showCreate.value = true }
+    function cancel(){ showCreate.value = false; form.value = { instrument_id: '', maintenance_type: 'general', maintenance_start: '', maintenance_date: '', description: '', status: 'pending' } }
+    async function save(){
+      if (!form.value.instrument_id) { alert('请选择仪器'); return }
+      const payload = { ...form.value }
+      // 将日期从 yyyy-MM-dd 转为 ISO 格式，后端可解析
+      if (payload.maintenance_date) {
+        try { payload.maintenance_date = new Date(payload.maintenance_date + 'T00:00:00').toISOString() } catch(e) { /* ignore */ }
+      }
+      if (payload.maintenance_start) {
+        try { payload.maintenance_start = new Date(payload.maintenance_start + 'T00:00:00').toISOString() } catch(e) { /* ignore */ }
+      }
+      // 不再发送 maintenance_end；完成时由后端补齐
+      try {
+        await axios.post(`${api}/api/maintenance`, payload, { headers: headers() })
+        alert('保存成功')
+        cancel(); loadMaintenance()
+      } catch (e) {
+        const msg = (e && e.response && (e.response.data && (e.response.data.error || e.response.data.message))) || e.message || '保存失败'
+        alert(`保存失败：${msg}`)
+      }
+    }
+
+    async function exportMaintenance(){
+      const params = new URLSearchParams()
+      if (filterInstrumentId.value) params.append('instrument_id', filterInstrumentId.value)
+      if (filterType.value) params.append('maintenance_type', filterType.value)
+      if (filterStartDate.value) params.append('start_date', filterStartDate.value)
+      if (filterEndDate.value) params.append('end_date', filterEndDate.value)
+      const token = localStorage.getItem('token')
+      if (token) params.append('token', token.replace(/^Bearer\s+/i, ''))
+      const url = `${api}/api/maintenance/export?${params.toString()}`
+      window.open(url, '_blank')
+    }
+
+    axios.get(`${api}/api/auth/me`, { headers: headers() }).then(r => {
+      user.value = r.data
+      if (r.data && r.data.role) { storedRole.value = r.data.role; localStorage.setItem('role', r.data.role) }
+      localStorage.setItem('is_keeper', r.data.is_keeper ? 'true' : 'false')
+      storedKeeper.value = r.data.is_keeper ? 'true' : 'false'
+      userLoaded.value = true
+      // 初始化加载
+      loadInstruments(); loadUsers(); loadMaintenance()
+    }).catch(() => {
+      userLoaded.value = true
+      alert('请先登录')
+      window.location.href = '/login.html'
+    })
+
+    async function markDone(m){
+      try {
+        await axios.put(`${api}/api/maintenance/${m.id}`, { status: 'done' }, { headers: headers() })
+        loadMaintenance()
+      } catch (e) {
+        alert('更新失败')
+      }
+    }
+
+    async function deleteRecord(m){
+      if (!confirm(`确定要删除维护记录"${getTypeText(m.maintenance_type)}"吗？`)) {
+        return
+      }
+      try {
+        await axios.delete(`${api}/api/maintenance/${m.id}`, { headers: headers() })
+        alert('删除成功')
+        loadMaintenance()
+      } catch (e) {
+        alert('删除失败: ' + (e.response?.data?.error || e.message))
+      }
+    }
+
+    const hasActiveFilters = computed(() => !!(filterInstrumentId.value || filterType.value || filterStartDate.value || filterEndDate.value))
+
+    return { user, userLoaded, isManagerOrAdmin, isSuperAdmin, isKeeper, isActive,
+      instruments, userMap, records, pagination, filterInstrumentId, filterType, filterStartDate, filterEndDate, visiblePages, hasActiveFilters,
+      getInstrumentName, getUserName, getTypeText, typeBadgeClass, statusBadgeClass, formatDateTime, formatDate,
+      goToPage, search, refresh, clearFilters, exportMaintenance, markDone, deleteRecord,
+      showCreate, form, openCreate, cancel, save }
+  }
+}).mount('#app')
+</script>
+</body>
+</html>
+

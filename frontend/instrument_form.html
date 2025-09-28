@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>添加/编辑仪器</title>
+  <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css" />
+  <script src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/axios@1.7.4/dist/axios.min.js"></script>
+  <style>
+    :root {
+      --primary: #007AFF;
+      --primary-hover: #0056CC;
+      --success: #34C759;
+      --warning: #FF9500;
+      --danger: #FF3B30;
+      --background: #F2F2F7;
+      --surface: #FFFFFF;
+      --surface-secondary: #F9F9F9;
+      --text-primary: #1D1D1F;
+      --text-secondary: #86868B;
+      --text-tertiary: #C7C7CC;
+      --border: #E5E5EA;
+      --border-light: #F2F2F7;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-lg: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--background);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 20px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 12px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-light);
+      transition: all 0.2s ease;
+      margin-bottom: 12px;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    .form {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      gap: 8px;
+    }
+    @media (max-width: 1100px) {
+      .form { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+    }
+    @media (max-width: 800px) {
+      .form { grid-template-columns: 1fr; }
+    }
+
+    /* inline row utilities */
+    .inline-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .inline-row-2 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      align-items: end;
+    }
+    @media (max-width: 800px) {
+      .inline-row, .inline-row-2 { grid-template-columns: 1fr; }
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    label span {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    input, textarea, select {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+    }
+
+    .row-2 { grid-column: 1 / -1; }
+
+    /* field width utilities */
+    .field-sm > input,
+    .field-sm > select { max-width: 220px; }
+    .field-md > input,
+    .field-md > select { max-width: 360px; }
+    .field-lg > input,
+    .field-lg > select,
+    .field-lg > textarea { max-width: 520px; }
+
+    /* refine textarea */
+    textarea { min-height: 96px; resize: vertical; }
+
+    /* character-based widths: ~10 Chinese chars for inputs/selects, 20 for textarea */
+    .form input:not([type="file"]),
+    .form select {
+      width: 10em;
+    }
+    .form textarea {
+      width: 20em;
+    }
+
+    .btn {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-compact { padding: 6px 10px; font-size: 13px; }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--surface-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--border-light);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background: #16A34A;
+      transform: translateY(-1px);
+    }
+
+    .btn-warning {
+      background: var(--warning);
+      color: white;
+    }
+
+    .btn-warning:hover:not(:disabled) {
+      background: #D97706;
+      transform: translateY(-1px);
+    }
+
+    nav {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      transition: all 0.2s ease;
+    }
+
+    a:hover {
+      background: rgba(0, 122, 255, 0.1);
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .section-header {
+      background: rgba(255, 149, 0, 0.08);
+      border: 1px solid rgba(255, 149, 0, 0.25);
+      color: var(--warning);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    /* Smooth animations */
+    * {
+      transition: all 0.2s ease;
+    }
+  </style>
+</head>
+<body>
+<div id="app" class="container">
+  <nav>
+    <a href="home.html">首页</a>
+    <a href="index.html">预约页面</a>
+  </nav>
+  <div class="card">
+    <div class="toolbar">
+      <button class="btn btn-secondary btn-compact" type="button" onclick="history.back()">← 返回</button>
+      <h2 style="margin:0; flex:1; font-size:18px; font-weight:700; color:var(--text-primary)">{{ id? '编辑仪器' : '添加仪器' }}</h2>
+    </div>
+    <div class="form">
+      <div class="row-2 section-header">基础信息（所有人可见）</div>
+    <label><span>仪器名称</span><input v-model="m.name" required /></label>
+    <label><span>资产编号</span><input v-model="m.asset_code" /></label>
+    <label><span>出厂编号</span><input v-model="m.factory_code" /></label>
+    <label><span>型号</span><input v-model="m.model" /></label>
+    <label><span>品牌</span><input v-model="m.brand" /></label>
+    <label><span>分类</span><input v-model="m.category" /></label>
+    <label class="field-sm"><span>数量</span><input v-model.number="m.quantity" type="number" min="1" /></label>
+    <label v-if="canSeeAdmin" class="field-sm"><span>预约刻度(分钟)</span><input v-model.number="m.slot_minutes" type="number" min="5" step="5" /></label>
+    <label><span>存放位置</span><input v-model="m.location" /></label>
+    <label><span>保管单位</span><input v-model="m.keeper_unit" /></label>
+    <label v-if="canSeeAdmin"><span>仪器保管员</span>
+      <select v-model="m.keeper_id">
+        <option value="">无保管员</option>
+        <option v-for="keeper in keepers" :key="keeper.id" :value="keeper.id">
+          {{ keeper.name }}
+        </option>
+      </select>
+    </label>
+    <label class="row-2"><span>照片</span>
+      <input type="file" ref="fileInput" @change="handleFileSelect" accept="image/*" style="display:none" />
+      <div style="display:flex; align-items:center; gap: 12px;">
+        <div style="width:96px;height:72px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;background:#F8F8FA;overflow:hidden;">
+          <img v-if="m.photo_url" :src="m.photo_url" alt="预览" style="max-width:100%;max-height:100%;display:block;" />
+          <span v-else style="color:var(--text-secondary);font-size:13px;">无预览</span>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-success btn-compact" @click="$refs.fileInput.click()">选择图片</button>
+          <button type="button" class="btn btn-warning btn-compact" @click="uploadImage" :disabled="!selectedFile">上传</button>
+        </div>
+      </div>
+    </label>
+    <label class="row-2"><span>备注</span><textarea v-model="m.notes"></textarea></label>
+    <hr class="row-2" />
+    <div class="row-2 section-header" style="background:rgba(0,122,255,0.1);border-color:rgba(0,122,255,0.3);color:var(--primary)">管理信息（仅管理员可见）</div>
+    <label v-if="canSeeAdmin"><span>销售公司</span><input v-model="m.vendor_company" /></label>
+    <label v-if="canSeeAdmin" class="field-sm"><span>生产时间</span><input v-model="m.production_date" type="date" /></label>
+    <label v-if="canSeeAdmin" class="field-sm"><span>投用时间</span><input v-model="m.start_use_date" type="date" /></label>
+    <label v-if="canSeeAdmin" class="field-sm"><span>保修年限</span><input v-model.number="m.warranty_years" type="number" min="0" /></label>
+    <label v-if="canSeeAdmin"><span>保修公司</span><input v-model="m.warranty_company" /></label>
+    
+    
+    <div class="row-2 section-header" style="background:rgba(52,199,89,0.1);border-color:rgba(52,199,89,0.3);color:var(--success)">仪器状态和权限设置</div>
+    <div class="row-2 inline-row">
+      <label v-if="canManageInstrument" class="field-sm"><span>仪器状态</span>
+        <select v-model="m.status">
+          <option value="active">正常使用</option>
+          <option value="suspended">暂停使用</option>
+          <option value="maintenance">维护中</option>
+        </select>
+      </label>
+      <label v-if="canManageInstrument" class="field-sm"><span>是否允许预约</span>
+        <select v-model="m.booking_enabled">
+          <option value="true">允许</option>
+          <option value="false">禁止</option>
+        </select>
+      </label>
+      <label v-if="canManageInstrument" class="field-sm"><span>是否需要审批</span>
+        <select v-model="m.requires_approval">
+          <option value="false">不需要</option>
+          <option value="true">需要</option>
+        </select>
+      </label>
+    </div>
+    <div class="row-2 inline-row-2">
+      <label v-if="canManageInstrument" class="field-sm"><span>预约开始时间</span><input v-model="m.booking_start_time" type="time" /></label>
+      <label v-if="canManageInstrument" class="field-sm"><span>预约结束时间</span><input v-model="m.booking_end_time" type="time" /></label>
+    </div>
+    
+    
+    <div class="row-2" style="display:flex; gap:8px; margin-top:8px; justify-content:flex-end">
+      <button class="btn btn-secondary btn-compact" @click="goBack">返回</button>
+      <button class="btn btn-primary btn-compact" @click="save">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, computed } = Vue
+createApp({
+  setup(){
+    const api = localStorage.getItem('API')||''
+    const id = Number(new URLSearchParams(location.search).get('id')||'') || null
+    const m = ref({ name:'', quantity:1, slot_minutes:15 })
+    const token = localStorage.getItem('token')
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+    const user = ref({})
+    const selectedFile = ref(null)
+    const keepers = ref([])
+    const canSeeAdmin = computed(()=> user.value.role==='admin' || user.value.role==='super_admin')
+    const canManageInstrument = computed(()=> {
+      if (canSeeAdmin.value) return true
+      // 检查是否是仪器保管人
+      return id && m.value.keeper_id === user.value.id
+    })
+
+    async function load(){
+      if(!id) return
+      const { data } = await axios.get(`${api}/api/instruments/${id}`)
+      const found = data
+      if(found) m.value = found
+    }
+
+    async function loadKeepers(){
+      try {
+        const { data } = await axios.get(`${api}/api/users`, { headers })
+        // 加载所有用户作为保管员候选
+        keepers.value = data
+      } catch (error) {
+        console.error('加载用户列表失败:', error)
+      }
+    }
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0]
+      if (file) {
+        selectedFile.value = file
+        // 预览图片
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          m.value.photo_url = e.target.result
+        }
+        reader.readAsDataURL(file)
+      }
+    }
+
+    
+
+    async function uploadImage() {
+      if (!selectedFile.value) return
+      
+      const formData = new FormData()
+      formData.append('file', selectedFile.value)
+      
+      try {
+        const { data } = await axios.post(`${api}/api/upload/image`, formData, { 
+          headers: { 
+            ...headers,
+            'Content-Type': 'multipart/form-data'
+          } 
+        })
+        m.value.photo_url = data.url
+        selectedFile.value = null
+        alert('图片上传成功')
+      } catch (error) {
+        console.error('上传失败:', error)
+        alert('图片上传失败: ' + (error.response?.data?.error || error.message))
+      }
+    }
+
+    function goBack() {
+      // 智能返回：检查来源页面
+      const referrer = document.referrer
+      if (referrer && referrer.includes('admin_instruments.html')) {
+        location.href = 'admin_instruments.html'
+      } else if (referrer && referrer.includes('admin.html')) {
+        location.href = 'admin.html'
+      } else {
+        location.href = 'home.html'
+      }
+    }
+
+    async function save(){
+      if(id){
+        // 先保存可编辑字段
+        const { keeper_id, ...rest } = m.value
+        await axios.put(`${api}/api/instruments/${id}`, rest, { headers })
+        // 管理员可通过专门接口更新保管员
+        if (canSeeAdmin.value) {
+          await axios.put(`${api}/api/instruments/${id}/keeper`, { keeper_id: keeper_id || null }, { headers })
+        }
+      } else {
+        // 创建时允许直接提交全部字段（后端会校验权限）
+        const created = await axios.post(`${api}/api/instruments`, m.value, { headers })
+        // 若选择了保管员，且当前是管理员，则调用分配接口确保一致
+        if (canSeeAdmin.value && m.value.keeper_id) {
+          const newId = created.data.id
+          await axios.put(`${api}/api/instruments/${newId}/keeper`, { keeper_id: m.value.keeper_id }, { headers })
+        }
+      }
+      alert('已保存')
+      goBack()
+    }
+
+    axios.get(`${api}/api/auth/me`, { headers }).then(r=> user.value=r.data).catch(()=>{})
+    load()
+    loadKeepers()
+    return { id, m, save, goBack, canSeeAdmin, canManageInstrument, selectedFile, handleFileSelect, uploadImage, keepers }
+  }
+}).mount('#app')
+</script>
+</body>
+</html>
+
+

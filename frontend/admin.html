@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>系统管理 - 用户与权限管理</title>
+  <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css" />
+  <script src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/axios@1.7.4/dist/axios.min.js"></script>
+  <style>
+    :root {
+      --primary: #007AFF;
+      --primary-hover: #0056CC;
+      --success: #34C759;
+      --warning: #FF9500;
+      --danger: #FF3B30;
+      --background: #F2F2F7;
+      --surface: #FFFFFF;
+      --surface-secondary: #F9F9F9;
+      --text-primary: #1D1D1F;
+      --text-secondary: #86868B;
+      --text-tertiary: #C7C7CC;
+      --border: #E5E5EA;
+      --border-light: #F2F2F7;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-lg: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--background);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 20px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-light);
+      transition: all 0.2s ease;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--surface-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--border-light);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #DC2626;
+      transform: translateY(-1px);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background: #16A34A;
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 12px;
+      background: var(--border-light);
+      color: var(--text-secondary);
+    }
+
+    .badge.active {
+      background: rgba(52, 199, 89, 0.1);
+      color: var(--success);
+    }
+
+    .badge.suspended {
+      background: rgba(255, 59, 48, 0.1);
+      color: var(--danger);
+    }
+
+    .badge.super_admin {
+      background: rgba(255, 149, 0, 0.1);
+      color: var(--warning);
+    }
+
+    .badge.admin {
+      background: rgba(0, 122, 255, 0.1);
+      color: var(--primary);
+    }
+
+    .badge.keeper {
+      background: rgba(52, 199, 89, 0.1);
+      color: var(--success);
+    }
+
+    .badge.user {
+      background: var(--border-light);
+      color: var(--text-secondary);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border-light);
+      padding: 16px;
+      text-align: left;
+    }
+
+    th {
+      background: var(--surface-secondary);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    tr:hover {
+      background: var(--surface-secondary);
+    }
+
+    .form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    label span {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    input, select, textarea {
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      font-size: 16px;
+      transition: all 0.2s ease;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+    }
+
+    .row-2 {
+      grid-column: span 2;
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      transition: all 0.2s ease;
+      display: block;
+    }
+
+    a:hover {
+      background: rgba(0, 122, 255, 0.1);
+    }
+
+    a.active {
+      background: rgba(0, 122, 255, 0.1);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* Navigation sidebar */
+    aside {
+      position: sticky;
+      top: 20px;
+      height: fit-content;
+    }
+
+    aside .card {
+      padding: 16px;
+    }
+
+    aside h3 {
+      margin: 0 0 16px 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* Smooth animations */
+    * {
+      transition: all 0.2s ease;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--border-light);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--text-tertiary);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+<div id="app" class="layout">
+  <aside class="card">
+    <h3>仪器预约管理平台</h3>
+    <div style="display:flex; flex-direction:column; gap:4px">
+      <a href="home.html">预约首页</a>
+      <a href="reservations.html">我的预约</a>
+      <a href="admin_users.html" class="active">用户管理</a>
+      <a href="admin_instruments.html">仪器管理</a>
+      <a href="admin_reservations.html">预约管理</a>
+      <a href="admin_maintenance.html">维护管理</a>
+      
+    </div>
+  </aside>
+
+  <main>
+    <!-- 用户管理 -->
+    <div class="card">
+      <div class="toolbar">
+        <button class="btn btn-secondary" type="button" onclick="history.back()">← 返回上一页</button>
+        <button class="btn btn-primary" @click="showCreateUser = true" v-if="canCreateUser">+ 添加用户</button>
+    </div>
+
+      <div class="toolbar">
+        <input v-model="userSearch" placeholder="搜索用户" style="flex:1;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);font-size:16px;transition:all 0.2s ease;" />
+        <select v-model="roleFilter" style="width:140px;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);font-size:16px;transition:all 0.2s ease;">
+          <option value="">所有角色</option>
+          <option value="super_admin">超级管理员</option>
+          <option value="admin">管理员</option>
+          <option value="user">用户</option>
+        </select>
+        <button class="btn btn-primary" @click="loadUsers">搜索</button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>姓名</th>
+            <th>角色</th>
+            <th>部门</th>
+            <th>状态</th>
+            <th>创建时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="u in filteredUsers" :key="u.id">
+            <td>{{ u.name }}</td>
+            <td><span :class="`badge ${u.role}`">{{ getRoleText(u.role) }}</span></td>
+            <td><span :class="`badge ${u.is_active}`">{{ u.is_active === 'active' ? '正常' : '暂停' }}</span></td>
+            <td>{{ formatDate(u.created_at) }}</td>
+            <td>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn btn-secondary" @click="editUser(u)" v-if="canEditUser(u)">编辑</button>
+                <button class="btn btn-warning" @click="toggleUserStatus(u)" v-if="canManageUser(u)">
+                  {{ u.is_active === 'active' ? '暂停' : '激活' }}
+                </button>
+                <button class="btn btn-danger" @click="deleteUser(u)" v-if="canDeleteUser(u)">删除</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 创建/编辑用户对话框 -->
+    <div v-if="showCreateUser || editingUser" class="card" style="margin-top:16px">
+      <h3>{{ editingUser ? '编辑用户' : '创建用户' }}</h3>
+      <div class="form">
+        <label><span>姓名</span><input v-model="userForm.name" /></label>
+        <label><span>工号</span><input v-model="userForm.employee_no" /></label>
+        <label><span>电话</span><input v-model="userForm.phone" /></label>
+        <label><span>邮箱</span><input v-model="userForm.email" /></label>
+        <label><span>角色</span>
+          <select v-model="userForm.role">
+            <option value="user">用户</option>
+            <option value="admin" v-if="canAssignRole('admin')">管理员</option>
+            <option value="super_admin" v-if="canAssignRole('super_admin')">超级管理员</option>
+          </select>
+        </label>
+        <label><span>类型</span>
+          <select v-model="userForm.type">
+            <option value="internal">内部用户</option>
+            <option value="external">外部用户</option>
+          </select>
+        </label>
+        <label class="row-2"><span>备注</span><textarea v-model="userForm.notes"></textarea></label>
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-primary" @click="saveUser">保存</button>
+        <button class="btn btn-secondary" @click="cancelEdit">取消</button>
+      </div>
+    </div>
+
+    <!-- 仪器管理 -->
+    <div id="instruments" class="card" style="margin-top:16px" v-if="isAdmin">
+      <div class="toolbar">
+        <h2 style="flex: 1; margin: 0; font-size: 24px; font-weight: 700; color: var(--text-primary);">仪器管理</h2>
+        <a class="btn btn-primary" href="instrument_form.html">+ 添加仪器</a>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>名称</th>
+            <th>保管人</th>
+            <th>状态</th>
+            <th>预约</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="i in instruments" :key="i.id">
+            <td>{{ i.name }}</td>
+            <td>{{ i.keeper_name }}</td>
+            <td><span class="badge">{{ i.status }}</span></td>
+            <td><span class="badge">{{ i.booking_enabled === 'false' ? '暂停' : '启用' }}</span></td>
+            <td>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <a class="btn btn-secondary" :href="`instrument_form.html?id=${i.id}`">编辑</a>
+                <button class="btn" @click="toggleInstrumentBooking(i)" :class="i.booking_enabled === 'false' ? 'btn-success' : 'btn-warning'">
+                  {{ i.booking_enabled === 'false' ? '启用预约' : '暂停预约' }}
+                </button>
+                <button class="btn btn-danger" @click="deleteInstrument(i.id)">删除</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script>
+const { createApp, ref, computed } = Vue
+createApp({
+  setup(){
+    const api = ref((location.origin && location.origin!=='null' && location.protocol!=='file:') ? location.origin : (localStorage.getItem('API')||'http://localhost:5011'))
+    const user = ref({})
+    const users = ref([])
+    const userSearch = ref('')
+    const roleFilter = ref('')
+    const showCreateUser = ref(false)
+    const editingUser = ref(null)
+    const userForm = ref({
+      name: '',
+      employee_no: '',
+      phone: '',
+      email: '',
+      role: 'user',
+      type: 'internal',
+      notes: ''
+    })
+
+    let token = localStorage.getItem('token')
+    const headers = () => token ? { 'Authorization': `Bearer ${token}` } : {}
+
+    const canCreateUser = computed(() => user.value.role === 'super_admin' || user.value.role === 'admin')
+    const isAdmin = computed(() => user.value.role === 'super_admin' || user.value.role === 'admin')
+    const canManageUser = computed(() => (u) => user.value.role === 'super_admin' || user.value.role === 'admin')
+    const canEditUser = computed(() => (u) => user.value.role === 'super_admin' || user.value.role === 'admin')
+    const canDeleteUser = computed(() => (u) => user.value.role === 'super_admin' && u.role !== 'super_admin')
+
+    const filteredUsers = computed(() => {
+      let result = users.value
+      if (userSearch.value) {
+        result = result.filter(u => u.name.toLowerCase().includes(userSearch.value.toLowerCase()))
+      }
+      if (roleFilter.value) {
+        result = result.filter(u => u.role === roleFilter.value)
+      }
+      return result
+    })
+
+    function getRoleText(role) {
+      const roleMap = {
+        'super_admin': '超级管理员',
+        'admin': '管理员',
+        'user': '用户'
+      }
+      return roleMap[role] || '未知'
+    }
+
+    function canAssignRole(role) {
+      if (user.value.role === 'super_admin') return true
+      if (user.value.role === 'admin' && role !== 'super_admin') return true
+      return false
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return ''
+      return new Date(dateStr).toLocaleDateString()
+    }
+
+    async function loadUsers() {
+      try {
+        const { data } = await axios.get(`${api.value}/api/users`, { headers: headers() })
+        users.value = data
+      } catch (error) {
+        console.error('加载用户失败:', error)
+        alert('加载用户失败: ' + (error.response?.data?.error || error.message))
+      }
+    }
+
+    function editUser(u) {
+      editingUser.value = u
+      userForm.value = { ...u }
+    }
+
+    function cancelEdit() {
+      showCreateUser.value = false
+      editingUser.value = null
+      userForm.value = {
+        name: '',
+        employee_no: '',
+        phone: '',
+        email: '',
+        role: 'user',
+        type: 'internal',
+        notes: ''
+      }
+    }
+
+    async function saveUser() {
+      try {
+        if (editingUser.value) {
+          await axios.put(`${api.value}/api/users/${editingUser.value.id}`, userForm.value, { headers: headers() })
+        } else {
+          await axios.post(`${api.value}/api/users`, userForm.value, { headers: headers() })
+        }
+        loadUsers()
+        cancelEdit()
+        alert('保存成功')
+      } catch (error) {
+        alert('保存失败: ' + (error.response?.data?.error || error.message))
+      }
+    }
+
+    async function toggleUserStatus(u) {
+      const newStatus = u.is_active === 'active' ? 'suspended' : 'active'
+      try {
+        await axios.put(`${api.value}/api/users/${u.id}/status`, { status: newStatus }, { headers: headers() })
+        loadUsers()
+        alert(newStatus === 'active' ? '用户已激活' : '用户已暂停')
+      } catch (error) {
+        alert('操作失败: ' + (error.response?.data?.error || error.message))
+      }
+    }
+
+    async function deleteUser(u) {
+      if (!confirm(`确定删除用户 ${u.name}？`)) return
+      try {
+        await axios.delete(`${api.value}/api/users/${u.id}`, { headers: headers() })
+        loadUsers()
+        alert('用户已删除')
+      } catch (error) {
+        alert('删除失败: ' + (error.response?.data?.error || error.message))
+      }
+    }
+
+    // 仪器管理
+    const instruments = ref([])
+
+    async function loadInstruments(){
+      try {
+        const { data } = await axios.get(`${api.value}/api/instruments`)
+        instruments.value = data
+      } catch (e) {
+        console.error('加载仪器失败', e)
+      }
+    }
+
+    async function deleteInstrument(id){
+      if(!confirm('确定删除该仪器？')) return
+      await axios.delete(`${api.value}/api/instruments/${id}`, { headers: headers() })
+      loadInstruments()
+    }
+
+    async function toggleInstrumentBooking(instrument){
+      const newStatus = instrument.booking_enabled === 'false' ? 'true' : 'false'
+      await axios.put(`${api.value}/api/instruments/${instrument.id}/booking`, { booking_enabled: newStatus }, { headers: headers() })
+      loadInstruments()
+    }
+
+    // 获取当前用户信息
+    axios.get(`${api.value}/api/auth/me`, { headers: headers() }).then(r => {
+      user.value = r.data
+      loadUsers()
+      loadInstruments()
+    }).catch(() => {
+      alert('请先登录')
+      window.location.href = '/login.html'
+    })
+
+    return {
+      api, user, users, userSearch, roleFilter, showCreateUser, editingUser, userForm,
+      canCreateUser, canManageUser, canEditUser, canDeleteUser, filteredUsers,
+      getRoleText, canAssignRole, formatDate, loadUsers, editUser, cancelEdit, saveUser, toggleUserStatus, deleteUser,
+      // instruments
+      isAdmin, instruments, loadInstruments, deleteInstrument, toggleInstrumentBooking
+    }
+  }
+}).mount('#app')
+</script>
+<script>
+// Smooth same-origin navigation to reduce page jank
+document.addEventListener('click', function (e) {
+  const anchor = e.target && e.target.closest && e.target.closest('a');
+  if (!anchor) return;
+  const url = new URL(anchor.href, location.href);
+  const isLeftClick = (e.button === 0);
+  const noModifier = !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey);
+  if (!isLeftClick || !noModifier) return;
+  if (url.origin !== location.origin) return;
+  e.preventDefault();
+  if (document.startViewTransition) {
+    document.startViewTransition(() => { location.href = url.href; });
+  } else {
+    location.href = url.href;
+  }
+});
+</script>
+</body>
+</html>

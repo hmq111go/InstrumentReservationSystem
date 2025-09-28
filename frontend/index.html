@@ -1,0 +1,968 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>仪器预约系统</title>
+  <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css" />
+  <script src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/axios@1.7.4/dist/axios.min.js"></script>
+  <style>
+    :root {
+      --primary: #007AFF;
+      --primary-hover: #0056CC;
+      --success: #34C759;
+      --warning: #FF9500;
+      --danger: #FF3B30;
+      --background: #F2F2F7;
+      --surface: #FFFFFF;
+      --surface-secondary: #F9F9F9;
+      --text-primary: #1D1D1F;
+      --text-secondary: #86868B;
+      --text-tertiary: #C7C7CC;
+      --border: #E5E5EA;
+      --border-light: #F2F2F7;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-lg: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--background);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 20px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-light);
+      transition: all 0.2s ease;
+    }
+
+    .card:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      font-size: 16px;
+      transition: all 0.2s ease;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+    }
+
+    .btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--surface-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--border-light);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .list-item {
+      padding: 16px;
+      border-bottom: 1px solid var(--border-light);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-radius: var(--radius-sm);
+      margin-bottom: 4px;
+    }
+
+    .list-item:hover {
+      background: var(--surface-secondary);
+    }
+
+    .list-item.active {
+      background: rgba(0, 122, 255, 0.1);
+      border: 1px solid var(--primary);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 80px repeat(7, 1fr);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--surface);
+    }
+
+    .cell {
+      height: 24px;
+      border-right: 1px solid var(--border-light);
+      border-bottom: 1px solid var(--border-light);
+      font-size: 11px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .cell:last-child {
+      border-right: none;
+    }
+
+    .cell.booked {
+      background: rgba(255, 59, 48, 0.1);
+      color: var(--danger);
+    }
+
+    .cell.free {
+      background: rgba(52, 199, 89, 0.1);
+      color: var(--success);
+      cursor: pointer;
+    }
+
+    .cell.free:hover {
+      background: rgba(52, 199, 89, 0.2);
+    }
+
+    .cell.blocked {
+      background: var(--border-light);
+      color: var(--text-tertiary);
+    }
+
+    .cell.selected {
+      background: var(--primary);
+      color: white;
+    }
+
+    /* Mobile reserve view */
+    .mobile-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    .mobile-header {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .mobile-photo {
+      width: 100px;
+      height: 75px;
+      overflow: hidden;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+      background: var(--surface-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-tertiary);
+      font-size: 12px;
+    }
+
+    .mobile-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .mobile-sub {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+
+    .slot-list {
+      max-height: 60vh;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .slot-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border-bottom: 1px solid var(--border-light);
+      font-size: 16px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .slot-item:last-child {
+      border-bottom: none;
+    }
+
+    .slot-item.free {
+      background: rgba(52, 199, 89, 0.05);
+    }
+
+    .slot-item.free:hover {
+      background: rgba(52, 199, 89, 0.1);
+    }
+
+    .slot-item.booked {
+      background: rgba(255, 59, 48, 0.05);
+    }
+
+    .slot-item.selected {
+      background: rgba(0, 122, 255, 0.1);
+      border: 1px solid var(--primary);
+    }
+
+    .badge {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+
+    .badge.ok {
+      background: var(--success);
+      color: white;
+    }
+
+    .badge.no {
+      background: var(--danger);
+      color: white;
+    }
+
+    .badge.maintenance {
+      background: var(--warning);
+      color: white;
+    }
+
+    .badge.suspended {
+      background: var(--danger);
+      color: white;
+    }
+
+    .mobile-toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .mobile-toolbar .btn {
+      flex: 1;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 16px;
+      }
+      .layout {
+        display: block;
+      }
+      .card {
+        padding: 16px;
+      }
+    }
+
+    /* Smooth animations */
+    * {
+      transition: all 0.2s ease;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--border-light);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--text-tertiary);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+<div id="app" class="layout">
+  <!-- Desktop/Default view -->
+  <template v-if="!isMobileReserve">
+  <div class="card">
+    <div class="toolbar">
+      <input v-model="search" placeholder="搜索仪器" class="search-input" />
+      <button @click="loadInstruments" class="btn btn-primary">搜索</button>
+    </div>
+    <div v-for="i in instruments" :key="i.id" class="list-item" :class="{active: i.id===selectedInstrumentId}" @click="selectInstrument(i.id)">
+      <div style="display:flex; gap:8px; align-items:center">
+        <div v-if="i.photo_url" style="width:40px;height:30px;overflow:hidden;border-radius:4px;border:1px solid #e5e7eb;flex-shrink:0">
+          <img :src="i.photo_url" :alt="i.name" style="width:100%;height:100%;object-fit:cover" />
+        </div>
+        <div v-else style="width:40px;height:30px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:10px;flex-shrink:0">
+          无图
+        </div>
+        <div style="flex:1">
+          <div><strong>{{ i.name }}</strong> <small>{{ i.brand }} {{ i.model }}</small></div>
+          <div style="color:#64748b">{{ i.location }}</div>
+          <div v-if="i.booking_enabled === 'false'" style="color:#ff3b30; font-size:12px; margin-top:2px">
+            <span class="badge suspended">暂停预约</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="toolbar" style="margin-bottom:16px">
+      <button @click="goBack" class="btn btn-secondary">← 返回上一页</button>
+    </div>
+    <div class="toolbar" style="margin-bottom:16px" v-if="!isLoggedIn">
+      <button @click="goToLogin" class="btn btn-primary">
+        🚀 飞书登录
+      </button>
+    </div>
+    <div class="toolbar" style="margin-bottom:16px" v-else>
+      <span style="color: var(--text-secondary); font-weight: 500;">欢迎，{{ user.name }}</span>
+    </div>
+    <div class="toolbar">
+      <button @click="prevWeek" class="btn btn-secondary">◀</button>
+      <div style="flex:1;text-align:center; font-weight: 600; color: var(--text-primary);">{{ weekTitle }}</div>
+      <button @click="thisWeek" class="btn btn-secondary">今天</button>
+      <button @click="nextWeek" class="btn btn-secondary">▶</button>
+    </div>
+    <div class="grid">
+      <div style="padding:4px;border-bottom:1px solid #e5e7eb; text-align:center">时间</div>
+      <template v-for="(day, dIdx) in weekDays">
+        <div style="padding:4px;border-bottom:1px solid #e5e7eb; text-align:center">{{ day.label }}</div>
+      </template>
+      <template v-for="row in totalRows">
+        <div class="cell" style="background:#f8fafc;color:#475569">{{ rowLabel(row) }}</div>
+        <template v-for="(day, dIdx) in weekDays">
+          <div class="cell" :class="cellClass(day, row)" :title="cellTooltip(day,row)" @click="clickCell(day, row)">
+            <div style="display:flex;flex-direction:column;align-items:center;line-height:1;">
+              <span>{{ cellLabel(day,row) }}</span>
+              <span v-if="cellPending(day,row)" style="font-size:10px;color:#ff9500;margin-top:2px">审核中</span>
+            </div>
+          </div>
+        </template>
+      </template>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:8px; align-items:center">
+      <button @click="createReservation" :disabled="!canReserve" class="btn btn-primary">预约所选</button>
+      <span v-if="selectedRangeText">{{ selectedRangeText }}</span>
+    </div>
+    <div style="margin-top:16px">
+      <h3>我的预约</h3>
+      <div v-if="myReservations.length === 0" style="color: #64748b; font-size: 14px; padding: 8px 0;">暂无预约</div>
+      <div v-for="r in myReservations" :key="r.id" style="display:flex;gap:8px;align-items:center;border-bottom:1px solid #f1f5f9;padding:6px 0">
+        <span>[{{ getStatusCn(r.status) }}]</span>
+        <span>{{ formatDT(r.start_time) }} → {{ formatDT(r.end_time) }}</span>
+        <button v-if="user.role==='admin' && r.status!=='approved'" @click="approve(r.id)">审核通过</button>
+        <button v-if="user.role==='admin' && r.status!=='rejected'" @click="reject(r.id)">驳回</button>
+        <button v-if="user.role==='admin' || r.employee_id===user.id" @click="cancel(r.id)">取消</button>
+      </div>
+    </div>
+  </div>
+  </template>
+
+  <!-- Mobile reserve view (QR landing) -->
+  <template v-else>
+    <div class="card mobile-wrap">
+      <div class="mobile-header">
+        <div class="mobile-photo">
+          <img v-if="currentInstrument && currentInstrument.photo_url" :src="currentInstrument.photo_url" :alt="currentInstrument.name" style="width:100%;height:100%;object-fit:cover" />
+          <span v-else>无图</span>
+        </div>
+        <div style="flex:1">
+          <div class="mobile-title">{{ currentInstrument?.name || '仪器详情' }}</div>
+          <div class="mobile-sub">{{ currentInstrument?.brand }} {{ currentInstrument?.model }} · {{ currentInstrument?.location }}</div>
+          <div class="mobile-sub">保管员：{{ currentInstrument?.keeper_name || '无' }}<span v-if="currentInstrument?.keeper_phone"> · <a :href="`tel:${currentInstrument.keeper_phone}`">{{ currentInstrument.keeper_phone }}</a></span></div>
+        </div>
+      </div>
+
+      <div class="mobile-toolbar">
+        <button class="btn btn-secondary" @click="mobilePrevDay">◀ 前一天</button>
+        <div style="flex:1; text-align:center; font-weight: 600; color: var(--text-primary);">{{ mobileDateLabel }}</div>
+        <button class="btn btn-secondary" @click="mobileNextDay">后一天 ▶</button>
+      </div>
+
+      <div class="slot-list">
+        <div v-for="slot in mobileSlots" :key="slot.key" class="slot-item" :class="slot.className" @click="mobileClickSlot(slot)">
+          <div>
+            <div style="font-weight:600">{{ slot.label }}</div>
+            <div v-if="slot.resv" style="font-size:12px;color:#475569">{{ slot.resv.employee_name }} · {{ formatDT(slot.resv.start_time) }}→{{ formatDT(slot.resv.end_time) }}</div>
+          </div>
+          <div>
+            <span v-if="slot.resv" class="badge no">已约</span>
+            <span v-else class="badge ok">可约</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mobile-toolbar">
+        <button class="btn btn-secondary" @click="goBack">返回</button>
+        <button class="btn btn-primary" @click="mobileReserve" :disabled="!canReserve">预约所选</button>
+      </div>
+
+      <div>
+        <div style="font-weight:600; margin-top:4px; margin-bottom:8px">当日预约</div>
+        <div v-if="dayReservations.length===0" style="color:#64748b; font-size:14px">暂无预约</div>
+        <div v-for="r in dayReservations" :key="r.id" style="display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid #f1f5f9">
+          <span>[{{ getStatusCn(r.status) }}]</span>
+          <span>{{ r.employee_name || '匿名' }}</span>
+          <span>{{ formatDT(r.start_time) }} → {{ formatDT(r.end_time) }}</span>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+
+<script>
+const { createApp, computed, ref } = Vue
+
+function toISO(dt){ const d=new Date(dt); d.setSeconds(0,0); return d.toISOString() }
+function toLocalISOString(dt){
+  const d = new Date(dt)
+  d.setSeconds(0,0)
+  const pad = (n)=> String(n).padStart(2,'0')
+  const y = d.getFullYear()
+  const m = pad(d.getMonth()+1)
+  const day = pad(d.getDate())
+  const hh = pad(d.getHours())
+  const mm = pad(d.getMinutes())
+  const ss = pad(d.getSeconds())
+  return `${y}-${m}-${day}T${hh}:${mm}:${ss}`
+}
+function addMinutes(dt, m){ return new Date(new Date(dt).getTime() + m*60000) }
+
+createApp({
+  setup(){
+    const defaultBase = (location.origin && location.origin !== 'null' && location.origin !== 'file://') ? location.origin : (localStorage.getItem('API') || 'https://nonprominently-overcomplex-sherly.ngrok-free.dev')
+    const api = ref(defaultBase)
+    const isLoggedIn = ref(false)
+    const user = ref({})
+    const token = ref(localStorage.getItem('token'))
+    const headers = computed(() => {
+      if (token.value) {
+        return { 'Authorization': `Bearer ${token.value}` }
+      }
+      return {}
+    })
+
+    const instruments = ref([])
+    const employees = ref([])
+    const reservations = ref([])
+    const selectedInstrumentId = ref(null)
+    const currentInstrument = ref(null)
+    const windowWidth = ref(window.innerWidth)
+    const hasInstrumentIdInURL = ref(false)
+    const viewDate = ref(new Date(new Date().setHours(0,0,0,0)))
+
+    const monday = ref(new Date(new Date().setHours(0,0,0,0)))
+    monday.value.setDate(monday.value.getDate() - ((monday.value.getDay()+6)%7))
+
+    const search = ref('')
+
+    const weekDays = computed(()=>
+      Array.from({length:7}, (_,i)=>{
+        const d = new Date(monday.value)
+        d.setDate(d.getDate()+i)
+        const label = `${d.getMonth()+1}月${d.getDate()}日`
+        return { date: d, label }
+      })
+    )
+
+    const weekTitle = computed(()=>{
+      const start = weekDays.value[0].date, end = weekDays.value[6].date
+      return `${start.getFullYear()}年 ${start.getMonth()+1}月 ${start.getDate()}日 — ${end.getFullYear()}年 ${end.getMonth()+1}月 ${end.getDate()}日`
+    })
+
+    const selection = ref(null) // {start, end}
+    const slotMinutes = ref(15)
+    const totalRows = computed(()=> Math.floor(24*60/slotMinutes.value))
+
+    function cellTime(day, row){
+      const dt = new Date(day.date)
+      const minutes = (row-1) * slotMinutes.value
+      dt.setMinutes(minutes)
+      return dt
+    }
+
+    function weekdayISO(d){ // 0=Mon .. 6=Sun
+      const js = d.getDay() // 0=Sun .. 6=Sat
+      return (js+6)%7
+    }
+
+    function allowedForUser(s, e){
+      if(!user.value || !user.value.id) return true
+      const employee = employees.value.find(u=>u.id===user.value.id)
+      if(!employee) return true
+      if(employee.type !== 'external') return true
+      const wd = weekdayISO(s)
+      return (user.allowed_windows||[]).some(w=>{
+        if(Number(w.weekday)!==wd) return false
+        const [sh, sm] = String(w.start||'00:00').split(':').map(Number)
+        const [eh, em] = String(w.end||'23:59').split(':').map(Number)
+        const ds = new Date(s); ds.setHours(sh, sm, 0, 0)
+        const de = new Date(s); de.setHours(eh, em, 0, 0)
+        return s>=ds && e<=de
+      })
+    }
+
+    function cellClass(day, row){
+      const s = cellTime(day, row)
+      const e = addMinutes(s, slotMinutes.value)
+      const now = new Date()
+      if (s < now) return 'blocked'
+      const resv = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status !== 'cancelled' && r.status !== 'rejected')
+      if(resv) return 'booked'
+      if(!allowedForUser(s, e)) return 'blocked'
+      if(!isWithinBookingHours(s, e)) return 'blocked'
+      if(selection.value && s >= selection.value.start && e <= selection.value.end) return 'selected'
+      return 'free'
+    }
+
+    // 检查是否在可预约时间内
+    function isWithinBookingHours(start, end) {
+      if (!currentInstrument.value) return true
+      
+      const startHour = currentInstrument.value.booking_start_time ? 
+        parseInt(currentInstrument.value.booking_start_time.split(':')[0]) : 8
+      const startMinute = currentInstrument.value.booking_start_time ? 
+        parseInt(currentInstrument.value.booking_start_time.split(':')[1]) || 0 : 0
+      const endHour = currentInstrument.value.booking_end_time ? 
+        parseInt(currentInstrument.value.booking_end_time.split(':')[0]) : 18
+      const endMinute = currentInstrument.value.booking_end_time ? 
+        parseInt(currentInstrument.value.booking_end_time.split(':')[1]) || 0 : 0
+      
+      const startMinutes = start.getHours() * 60 + start.getMinutes()
+      const endMinutes = end.getHours() * 60 + end.getMinutes()
+      const bookingStartMinutes = startHour * 60 + startMinute
+      const bookingEndMinutes = endHour * 60 + endMinute
+      
+      // 时间段必须完全在预约时间范围内
+      return startMinutes >= bookingStartMinutes && endMinutes <= bookingEndMinutes
+    }
+
+    function clickCell(day, row){
+      const s = cellTime(day, row)
+      const e = addMinutes(s, slotMinutes.value)
+      if(cellClass(day, row) !== 'free') return
+      // toggle/expand selection
+      if(!selection.value) selection.value = { start: s, end: e }
+      else if(e.getTime() === selection.value.start.getTime()) selection.value.start = s
+      else if(s.getTime() === selection.value.end.getTime()) selection.value.end = e
+      else selection.value = { start: s, end: e }
+    }
+
+    const selectedRangeText = computed(()=> selection.value ? `${selection.value.start.toLocaleString()} → ${selection.value.end.toLocaleString()}` : '')
+    const canReserve = computed(()=> {
+      if(!(selectedInstrumentId.value && selection.value && user.value && user.value.id)) return false
+      // ensure selection aligns to slot
+      const aligned = selection.value.start.getMinutes()%slotMinutes.value===0 && selection.value.end.getMinutes()%slotMinutes.value===0
+      return aligned && (selection.value.start >= new Date())
+    })
+
+    async function loadInstruments(){
+      const { data } = await axios.get(`${api.value}/api/instruments`, { params: { q: search.value } })
+      instruments.value = data
+      if(!selectedInstrumentId.value && data[0]) selectInstrument(data[0].id)
+    }
+
+    async function loadEmployees(){
+      if (!isLoggedIn.value) return
+      try {
+        const { data } = await axios.get(`${api.value}/api/employees`, { headers: headers.value })
+        employees.value = data
+      } catch (e) {
+        console.error('Failed to load employees:', e)
+      }
+    }
+
+    async function loadReservations(){
+      if(!selectedInstrumentId.value) return
+      const { data } = await axios.get(`${api.value}/api/reservations`, { params: { instrument_id: selectedInstrumentId.value }, headers: headers.value })
+      reservations.value = data
+    }
+
+    // 过滤我的预约：只显示当前用户的预约，且只显示还没开始的预约
+    const myReservations = computed(() => {
+      if (!user.value || !user.value.id) return []
+      const now = new Date()
+      return reservations.value.filter(r => 
+        r.employee_id === user.value.id && 
+        new Date(r.start_time) > now &&
+        r.status !== 'cancelled' && 
+        r.status !== 'rejected'
+      )
+    })
+
+    async function selectInstrument(id){
+      selectedInstrumentId.value = id;
+      try{
+        const { data } = await axios.get(`${api.value}/api/instruments/${id}`)
+        slotMinutes.value = Number(data.slot_minutes||15)
+        currentInstrument.value = data
+      }catch(e){ slotMinutes.value = 15 }
+      loadReservations();
+    }
+
+    // Initialize selected instrument from URL (supports ?instrument_id= and #iid=)
+    function initInstrumentFromURL(){
+      try{
+        const url = new URL(window.location.href)
+        const q = url.searchParams.get('instrument_id')
+        let fromHash = null
+        if (location.hash) {
+          const m = location.hash.match(/iid=(\d+)/)
+          if (m && m[1]) fromHash = m[1]
+        }
+        const raw = q || fromHash
+        const iid = raw ? Number(raw) : null
+        if (iid && !Number.isNaN(iid)) {
+          // Pre-select before instruments load; loadReservations will run after select
+          selectInstrument(iid)
+          hasInstrumentIdInURL.value = true
+          try { viewDate.value = new Date(new Date().setHours(0,0,0,0)) } catch(e){}
+        }
+      }catch(e){ /* ignore */ }
+    }
+
+    function thisWeek(){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-((d.getDay()+6)%7)); monday.value=d; loadReservations() }
+    function prevWeek(){ monday.value = addMinutes(monday.value, -7*24*60); loadReservations() }
+    function nextWeek(){ monday.value = addMinutes(monday.value, 7*24*60); loadReservations() }
+
+    async function createReservation(){
+      if(!canReserve.value) return
+      // 阻止预约当前时间之前
+      try{
+        const now = new Date()
+        if(selection.value && selection.value.start < now){ alert('不能预约当前时间之前的时段'); return }
+      }catch(e){}
+      // 以浏览器本地时间为准，避免时差：统一转为本地 ISO 不含 Z
+      const startISO = toLocalISOString(selection.value.start)
+      const endISO = toLocalISOString(selection.value.end)
+      await axios.post(`${api.value}/api/reservations`, {
+        instrument_id: selectedInstrumentId.value,
+        employee_id: user.value.id,
+        start_time: startISO,
+        end_time: endISO
+      }, { headers: headers.value }).then(()=>{ selection.value=null; loadReservations() }).catch(e=> alert(e.response?.data?.error||'error'))
+    }
+
+    async function approve(id){ await axios.post(`${api.value}/api/reservations/${id}/approve`, {}, { headers: headers.value }); loadReservations() }
+    async function reject(id){ await axios.post(`${api.value}/api/reservations/${id}/reject`, {}, { headers: headers.value }); loadReservations() }
+    async function cancel(id){ await axios.post(`${api.value}/api/reservations/${id}/cancel`, {}, { headers: headers.value }); loadReservations() }
+
+    const showApiBar = (location.origin === 'null' || location.origin === 'file://' || location.protocol === 'file:')
+
+    function goBack(){
+      if (history.length > 1) history.back();
+      else window.location.href = '/home.html'
+    }
+    
+    // 认证相关函数
+    const checkLoginStatus = async () => {
+      const savedToken = localStorage.getItem('token')
+      const loginTime = localStorage.getItem('login_time')
+      
+      if (savedToken && loginTime) {
+        // 检查token是否过期（30天）
+        const thirtyDays = 30 * 24 * 60 * 60 * 1000
+        if (Date.now() - parseInt(loginTime) < thirtyDays) {
+          token.value = savedToken
+        } else {
+          // token过期，清除
+          localStorage.removeItem('token')
+          localStorage.removeItem('login_time')
+          token.value = null
+          return false
+        }
+      } else {
+        return false
+      }
+      
+      if (!token.value) return false
+      try {
+        const response = await axios.get(`${api.value}/api/auth/me`, { headers: headers.value })
+        user.value = response.data
+        isLoggedIn.value = true
+        console.log('✅ 自动登录成功:', user.value.name)
+        return true
+      } catch (e) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('login_time')
+        token.value = null
+        isLoggedIn.value = false
+        return false
+      }
+    }
+    
+    const goToLogin = () => {
+      // 仅在飞书内置浏览器中自动拉起登录
+      const ua = navigator.userAgent || ''
+      const inFeishu = /Lark|Feishu/i.test(ua)
+      const url = new URL(window.location.href)
+      const iid = url.searchParams.get('instrument_id') || (location.hash.match(/iid=(\d+)/)||[])[1] || ''
+      const next = iid ? `/index.html?instrument_id=${iid}` : '/home.html'
+      if (inFeishu) {
+        fetch(`${api.value}/api/auth/feishu/login?next=${encodeURIComponent(next)}`)
+          .then(r=>r.json())
+          .then(j=>{ if(j.auth_url) window.location.href = j.auth_url; else alert('无法拉起飞书登录') })
+          .catch(()=>{ alert('无法拉起飞书登录') })
+      } else {
+        alert('请使用飞书扫码以自动识别您的用户名后再预约')
+      }
+    }
+    
+    // 预约页不提供退出登录
+    
+    const getRoleText = (role) => {
+      const roleMap = {
+        'admin': '超级管理员',
+        'user': '普通用户'
+      }
+      return roleMap[role] || '未知'
+    }
+    
+    function saveAPI(){ localStorage.setItem('API', api.value); loadInstruments(); loadEmployees(); loadReservations() }
+    function formatDT(s){ const d=new Date(s); return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}` }
+    
+    function getMaintenanceTypeText(type) {
+      const typeMap = {
+        'general': '日常维护',
+        'repair': '维修',
+        'calibration': '校准',
+        'inspection': '巡检'
+      }
+      return typeMap[type] || '维护'
+    }
+
+    function getStatusCn(status){
+      const m = { pending:'审核中', approved:'已通过', rejected:'已驳回', cancelled:'已取消' }
+      return m[status] || status
+    }
+
+    async function probeAPI(){
+      const candidates = [api.value, 'http://127.0.0.1:5011', 'http://localhost:5011'].filter(Boolean)
+      for(const base of candidates){
+        try{ await axios.get(`${base}/api/health`); api.value = base; localStorage.setItem('API', base); break }catch(e){}
+      }
+      if(!api.value){
+        const input = prompt('请输入后端 API 地址 (如 http://127.0.0.1:5011)') || ''
+        if(input){ api.value = input; localStorage.setItem('API', input) }
+      }
+    }
+
+    async function seedIfEmpty(){
+      await loadInstruments(); await loadEmployees()
+      if(instruments.value.length===0){
+        await axios.post(`${api.value}/api/instruments`, { name: 'DRL-III 导热系数测试仪-1', brand:'示例品牌', model:'X-1', category:'检测设备', location:'电镜室内' }, { headers: headers.value })
+      }
+      if(employees.value.length===0){
+        const ext = { name:'外部用户A', type:'external', phone:'', allowed_windows:[{weekday:0,start:'09:00',end:'17:00'},{weekday:1,start:'09:00',end:'17:00'},{weekday:2,start:'09:00',end:'17:00'},{weekday:3,start:'09:00',end:'17:00'},{weekday:4,start:'09:00',end:'17:00'}] }
+        const intUser = { name:'内部用户B', type:'internal', phone:'' }
+        await axios.post(`${api.value}/api/employees`, ext, { headers: headers.value })
+        await axios.post(`${api.value}/api/employees`, intUser, { headers: headers.value })
+      }
+      await loadInstruments(); await loadEmployees();
+    }
+
+    function saveRole(){ localStorage.setItem('role', role.value) }
+    
+    probeAPI().then(()=>{ initInstrumentFromURL(); loadInstruments(); loadEmployees(); })
+
+    // 处理从回调带回的 token（支持从飞书回跳到本页）
+    ;(function handleCallbackToken(){
+      try{
+        const params = new URLSearchParams(window.location.search)
+        const t = params.get('token')
+        const ok = params.get('success')
+        if(t && ok === 'true'){
+          localStorage.setItem('token', t)
+          localStorage.setItem('login_time', Date.now().toString())
+          token.value = t
+          // 清理URL但保留 instrument_id
+          const u = new URL(window.location.href)
+          const iid = u.searchParams.get('instrument_id')
+          const autologin = u.searchParams.get('autologin')
+          const clean = new URL(window.location.origin + '/index.html')
+          if(iid) clean.searchParams.set('instrument_id', iid)
+          if(autologin) clean.searchParams.set('autologin', autologin)
+          window.history.replaceState({}, document.title, clean.toString())
+          // 获取用户信息并刷新数据
+          axios.get(`${api.value}/api/auth/me`, { headers: headers.value }).then(r=>{
+            user.value = r.data
+            isLoggedIn.value = true
+            loadEmployees()
+            loadReservations()
+          }).catch(()=>{})
+        }
+      }catch(e){ /* ignore */ }
+    })()
+
+    // Mobile logic
+    window.addEventListener('resize', () => { windowWidth.value = window.innerWidth })
+    const isMobileReserve = computed(()=> hasInstrumentIdInURL.value && windowWidth.value < 768 )
+    const mobileDateLabel = computed(()=> {
+      const d = viewDate.value; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    })
+    function mobilePrevDay(){ const d=new Date(viewDate.value); d.setDate(d.getDate()-1); viewDate.value=d; loadReservations() }
+    function mobileNextDay(){ const d=new Date(viewDate.value); d.setDate(d.getDate()+1); viewDate.value=d; loadReservations() }
+    const dayReservations = computed(()=> {
+      const start = new Date(viewDate.value)
+      const end = new Date(viewDate.value); end.setDate(end.getDate()+1)
+      return reservations.value.filter(r=> new Date(r.start_time) < end && new Date(r.end_time) > start)
+    })
+    const mobileSlots = computed(()=>{
+      const slots = []
+      const start = new Date(viewDate.value)
+      const now = new Date()
+      for(let mins=0; mins<24*60; mins+=slotMinutes.value){
+        const s = new Date(start); s.setMinutes(mins)
+        const e = new Date(s); e.setMinutes(e.getMinutes()+slotMinutes.value)
+        const resv = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status !== 'cancelled' && r.status !== 'rejected')
+        let className = 'free'
+        if (s < now) {
+          className = 'blocked'
+        } else if (resv) {
+          className = 'booked'
+        } else if (!isWithinBookingHours(s, e)) {
+          className = 'blocked'
+        } else if (selection.value && s >= selection.value.start && e <= selection.value.end) {
+          className = 'selected'
+        }
+        slots.push({ key: `${s.toISOString()}`, s, e, resv, className, label: `${String(s.getHours()).padStart(2,'0')}:${String(s.getMinutes()).padStart(2,'0')} - ${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}` })
+      }
+      return slots
+    })
+    function mobileClickSlot(slot){
+      if(slot.resv || slot.className === 'blocked') return
+      const s = slot.s, e = slot.e
+      if(!selection.value) selection.value = { start: s, end: e }
+      else if(e.getTime() === selection.value.start.getTime()) selection.value.start = s
+      else if(s.getTime() === selection.value.end.getTime()) selection.value.end = e
+      else selection.value = { start: s, end: e }
+    }
+    async function mobileReserve(){
+      if(!isLoggedIn.value){
+        const ua = navigator.userAgent || ''
+        const inFeishu = /Lark|Feishu/i.test(ua)
+        if (inFeishu) return goToLogin()
+        alert('请用飞书扫码后再提交预约（用于识别您的用户名）')
+        return
+      }
+      if(!canReserve.value){ alert('请选择可用的时间段再提交'); return }
+      await createReservation()
+    }
+
+    function cellLabel(day,row){
+      const s = cellTime(day,row); const e = addMinutes(s,slotMinutes.value)
+      const r = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status!=='cancelled' && r.status!=='rejected')
+      return r ? (r.employee_name||'已预约') : ''
+    }
+    function cellTooltip(day,row){
+      const s = cellTime(day,row); const e = addMinutes(s,slotMinutes.value)
+      const r = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status!=='cancelled' && r.status!=='rejected')
+      return r ? `${r.employee_name||''} ${formatDT(r.start_time)}-${formatDT(r.end_time)}` : ''
+    }
+
+    function cellPending(day,row){
+      const s = cellTime(day,row); const e = addMinutes(s,slotMinutes.value)
+      const r = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status!=='cancelled' && r.status!=='rejected')
+      return !!(r && r.status === 'pending')
+    }
+
+    function rowLabel(row){
+      const mins = (row-1)*slotMinutes.value
+      const hh = Math.floor(mins/60)
+      const mm = mins%60
+      return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`
+    }
+
+    // 初始化时检查登录状态；若移动落地且带 autologin=1 且未登录，则仅在飞书内自动拉起
+    checkLoginStatus().then((ok) => {
+      if (isLoggedIn.value) {
+        loadInstruments()
+        loadEmployees()
+      } else if (isMobileReserve.value) {
+        try {
+          const u = new URL(window.location.href)
+          const autologin = u.searchParams.get('autologin')
+          const ua = navigator.userAgent || ''
+          const inFeishu = /Lark|Feishu/i.test(ua)
+          if (autologin === '1' && inFeishu) { goToLogin() }
+        } catch(e) { /* noop */ }
+      }
+    })
+    
+    return { api, showApiBar, saveAPI, instruments, employees, reservations, myReservations, search, selectedInstrumentId, selectInstrument, weekDays, weekTitle, prevWeek, nextWeek, thisWeek, cellClass, clickCell, selectedRangeText, createReservation, canReserve, loadInstruments, approve, reject, cancel, formatDT, seedIfEmpty, cellLabel, cellTooltip, cellPending, totalRows, rowLabel, isLoggedIn, user, token, headers, checkLoginStatus, goToLogin, getRoleText, goBack, isMobileReserve, currentInstrument, mobileSlots, mobileClickSlot, mobileReserve, mobileDateLabel, mobilePrevDay, mobileNextDay, dayReservations, isWithinBookingHours, getMaintenanceTypeText, getStatusCn }
+  }
+}).mount('#app')
+</script>
+</body>
+</html>
