@@ -1,63 +1,84 @@
+# Standard library imports
+import json
 import os
-import uuid
 import secrets
-from datetime import datetime, timedelta, timezone
-from werkzeug.utils import secure_filename
 import threading
 import time
-import json
+import uuid
+from datetime import datetime, timedelta, timezone
 
+# Third-party imports
 import jwt
 import qrcode
 import requests
 from flask import Flask, jsonify, request, send_file, send_from_directory, redirect
 from flask_cors import CORS
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, JSON, Boolean, and_, or_, \
-    text
+from sqlalchemy import (
+    create_engine, Column, Integer, String, Text, DateTime, 
+    ForeignKey, JSON, Boolean, and_, or_, text
+)
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship, scoped_session
+from werkzeug.utils import secure_filename
 
 
 def create_app():
-    app = Flask(__name__)
-    # 简化session配置，避免HTTPS问题
-    app.config['SESSION_COOKIE_SECURE'] = False  # 暂时设为False，避免ngrok问题
-    app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-    # 图片上传配置
-    app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), '..', 'uploads')
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+    # ===================== Configuration Constants =====================
+    # Flask configuration
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'uploads')
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-    CORS(app, supports_credentials=True)
-
-    # 飞书配置
+    
+    # Feishu configuration
     FEISHU_APP_ID = os.getenv("FEISHU_APP_ID", "cli_a84d36f557729013")
     FEISHU_APP_SECRET = os.getenv("FEISHU_APP_SECRET", "ZebTrPQlsZKHOA2nJeAv0gjvotAqOiGf")
-    FEISHU_REDIRECT_URI = os.getenv("FEISHU_REDIRECT_URI",
-                                    "https://nonprominently-overcomplex-sherly.ngrok-free.dev/api/auth/feishu/callback")
-
-    # JWT配置
+    FEISHU_REDIRECT_URI = os.getenv(
+        "FEISHU_REDIRECT_URI",
+        "https://nonprominently-overcomplex-sherly.ngrok-free.dev/api/auth/feishu/callback"
+    )
+    
+    # JWT configuration
     JWT_SECRET = os.getenv("JWT_SECRET", secrets.token_urlsafe(32))
     JWT_ALGORITHM = "HS256"
-
-    database_url = os.getenv("DATABASE_URL") or "sqlite:///instrument_reservation.db"
-
+    
+    # Database configuration
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///instrument_reservation.db")
+    DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "20"))
+    DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "30"))
+    DB_POOL_RECYCLE = 3600
+    DB_POOL_TIMEOUT = 60
+    
+    # Timezone configuration
+    CN_OFFSET = timedelta(hours=8)
+    
+    # ===================== Flask App Setup =====================
+    app = Flask(__name__)
+    
+    # Session configuration
+    app.config.update({
+        'SESSION_COOKIE_SECURE': False,  # Set to False to avoid ngrok issues
+        'SESSION_COOKIE_HTTPONLY': True,
+        'SESSION_COOKIE_SAMESITE': 'Lax',
+        'UPLOAD_FOLDER': UPLOAD_FOLDER,
+        'MAX_CONTENT_LENGTH': MAX_CONTENT_LENGTH,
+    })
+    
+    CORS(app, supports_credentials=True)
+    
+    # ===================== Database Setup =====================
     engine = create_engine(
-        database_url,
+        DATABASE_URL,
         pool_pre_ping=True,
-        pool_size=int(os.getenv("DB_POOL_SIZE", "20")),
-        max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "30")),
-        pool_recycle=3600,
-        pool_timeout=60,
+        pool_size=DB_POOL_SIZE,
+        max_overflow=DB_MAX_OVERFLOW,
+        pool_recycle=DB_POOL_RECYCLE,
+        pool_timeout=DB_POOL_TIMEOUT,
         echo=os.getenv("SQLALCHEMY_ECHO", "0") == "1",
-        # SQLite 优化配置
-        connect_args={"check_same_thread": False} if "sqlite" in database_url else {},
+        connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
     )
+    
     Session = scoped_session(sessionmaker(bind=engine, expire_on_commit=False))
     _SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
     Base = declarative_base()
-
-    # 全局时区：北京时间 (UTC+8)
-    CN_OFFSET = timedelta(hours=8)
 
     def now_cn():
         # 返回北京时间的“当前时间”（保持 naive，整个项目按本地北京时解释）
@@ -65,36 +86,52 @@ def create_app():
 
     # ===================== Feishu Bot helpers =====================
     _tenant_access_token_cache = {"token": None, "expire_at": 0}
+    FEISHU_API_BASE = "https://open.feishu.cn/open-apis"
+    FEISHU_TOKEN_URL = f"{FEISHU_API_BASE}/auth/v3/tenant_access_token/internal"
+    FEISHU_MESSAGE_URL = f"{FEISHU_API_BASE}/im/v1/messages"
+    FEISHU_TIMEOUT = 10
 
     def get_tenant_access_token() -> str:
+        """获取飞书租户访问令牌，带缓存机制"""
         now_ts = int(time.time())
-        if _tenant_access_token_cache["token"] and now_ts < _tenant_access_token_cache["expire_at"] - 60:
+        if (_tenant_access_token_cache["token"] and 
+            now_ts < _tenant_access_token_cache["expire_at"] - 60):
             return _tenant_access_token_cache["token"]
+        
         try:
-            resp = requests.post(
-                "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
-                json={"app_id": FEISHU_APP_ID, "app_secret": FEISHU_APP_SECRET}, timeout=10
+            response = requests.post(
+                FEISHU_TOKEN_URL,
+                json={"app_id": FEISHU_APP_ID, "app_secret": FEISHU_APP_SECRET},
+                timeout=FEISHU_TIMEOUT
             )
-            data = resp.json()
+            response.raise_for_status()
+            
+            data = response.json()
             if data.get("code") == 0:
-                tok = data.get("tenant_access_token")
+                token = data.get("tenant_access_token")
                 ttl = int(data.get("expire", 3600))
-                _tenant_access_token_cache["token"] = tok
+                _tenant_access_token_cache["token"] = token
                 _tenant_access_token_cache["expire_at"] = now_ts + ttl
-                return tok
-        except Exception:
-            pass
+                return token
+            else:
+                print(f"获取飞书token失败: {data.get('msg', 'Unknown error')}")
+        except requests.RequestException as e:
+            print(f"获取飞书token网络错误: {e}")
+        except Exception as e:
+            print(f"获取飞书token未知错误: {e}")
+        
         return None
 
-    def send_feishu_text_to_user(feishu_user_id: str, text: str):
-        if not feishu_user_id:
-            return
+    def send_feishu_text_to_user(feishu_user_id: str, text: str) -> bool:
+        """发送飞书文本消息给用户"""
+        if not feishu_user_id or not text:
+            return False
+            
         access_token = get_tenant_access_token()
         if not access_token:
-            print("未获取到 access_token")
+            print("未获取到飞书access_token")
             return False
 
-        url = f"https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=user_id"
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json"
@@ -105,16 +142,30 @@ def create_app():
             "content": json.dumps({"text": text})
         }
 
-        response = requests.post(url, headers=headers, json=data)
-        if response.status_code == 200:
-            print("消息发送成功")
-            return True
-        else:
-            print(f"发送消息失败，状态码：{response.status_code}")
-            print(f"响应内容：{response.text}")
-            return False
+        try:
+            response = requests.post(
+                f"{FEISHU_MESSAGE_URL}?receive_id_type=user_id",
+                headers=headers,
+                json=data,
+                timeout=FEISHU_TIMEOUT
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            if result.get("code") == 0:
+                print("飞书消息发送成功")
+                return True
+            else:
+                print(f"飞书消息发送失败: {result.get('msg', 'Unknown error')}")
+        except requests.RequestException as e:
+            print(f"飞书消息发送网络错误: {e}")
+        except Exception as e:
+            print(f"飞书消息发送未知错误: {e}")
+        
+        return False
 
     def build_action_token(reservation_id: int, keeper_id: int, action: str, minutes_valid: int = 60) -> str:
+        """构建飞书操作令牌"""
         payload = {
             "rid": reservation_id,
             "kid": keeper_id,
@@ -124,7 +175,8 @@ def create_app():
         }
         return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
-    def send_feishu_approval_card_to_keeper(reservation: "Reservation"):
+    def send_feishu_approval_card_to_keeper(reservation: "Reservation") -> bool:
+        """发送飞书审批卡片给保管员"""
         # Use an independent non-scoped session to avoid detaching objects in current request
         local_s = _SessionLocal()
         try:
@@ -132,30 +184,33 @@ def create_app():
             keeper = local_s.query(User).get(getattr(inst, "keeper_id", None) or 0)
             reserver = local_s.query(User).get(reservation.user_id)
         finally:
-            try:
-                local_s.close()
-            except Exception:
-                pass
+            local_s.close()
+        
         if not keeper or not keeper.feishu_user_id:
-            return
-        tat = get_tenant_access_token()
-        if not tat:
-            return
+            print("保管员不存在或未绑定飞书账号")
+            return False
+            
+        access_token = get_tenant_access_token()
+        if not access_token:
+            print("未获取到飞书access_token")
+            return False
+        
         # Build approve/reject links with signed token
-        base = (request.url_root or "").rstrip("/")
+        base_url = (request.url_root or "").rstrip("/")
         approve_token = build_action_token(reservation.id, keeper.id, "approve")
         reject_token = build_action_token(reservation.id, keeper.id, "reject")
-        approve_url = f"{base}/api/feishu/action?token={approve_token}"
-        reject_url = f"{base}/api/feishu/action?token={reject_token}"
+        approve_url = f"{base_url}/api/feishu/action?token={approve_token}"
+        reject_url = f"{base_url}/api/feishu/action?token={reject_token}"
+        
+        # Format time strings
         start_str = reservation.start_time.strftime("%Y-%m-%d %H:%M")
         end_str = reservation.end_time.strftime("%Y-%m-%d %H:%M")
-        reserver_name = reserver.name if reserver else ""
+        reserver_name = reserver.name if reserver else "未知用户"
+        instrument_name = inst.name if inst else "未知仪器"
 
         card = {
             "schema": "2.0",
-            "config": {
-                "wide_screen_mode": True
-            },
+            "config": {"wide_screen_mode": True},
             "header": {
                 "title": {
                     "tag": "plain_text",
@@ -168,7 +223,7 @@ def create_app():
                         "tag": "div",
                         "text": {
                             "tag": "lark_md",
-                            "content": f"**申请人：**{reserver_name}\n**仪器：**{inst.name if inst else ''}\n**时段：**{start_str} - {end_str}"
+                            "content": f"**申请人：**{reserver_name}\n**仪器：**{instrument_name}\n**时段：**{start_str} - {end_str}"
                         }
                     },
                     {
@@ -181,15 +236,38 @@ def create_app():
                 ]
             }
         }
+        
         try:
-            url = "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=user_id"
-            headers = {"Authorization": f"Bearer {tat}", "Content-Type": "application/json"}
-            payload = {"receive_id": keeper.feishu_user_id, "msg_type": "interactive", "content": json.dumps(card)}
-            resp = requests.post(url, headers=headers, json=payload, timeout=10)
-            if getattr(resp, 'status_code', 0) != 200:
-                print(f"[feishu] card send non-200: {resp.status_code} {getattr(resp, 'text', '')}")
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "receive_id": keeper.feishu_user_id,
+                "msg_type": "interactive",
+                "content": json.dumps(card)
+            }
+            
+            response = requests.post(
+                f"{FEISHU_MESSAGE_URL}?receive_id_type=user_id",
+                headers=headers,
+                json=payload,
+                timeout=FEISHU_TIMEOUT
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            if result.get("code") == 0:
+                print("飞书审批卡片发送成功")
+                return True
+            else:
+                print(f"飞书审批卡片发送失败: {result.get('msg', 'Unknown error')}")
+        except requests.RequestException as e:
+            print(f"飞书审批卡片发送网络错误: {e}")
         except Exception as e:
-            print('[feishu] card send exception:', e)
+            print(f"飞书审批卡片发送未知错误: {e}")
+        
+        return False
 
     class Instrument(Base):
         __tablename__ = "instruments"
@@ -599,6 +677,7 @@ def create_app():
         """确保数据库连接正确关闭"""
         Session.remove()
 
+    # ===================== Caching System =====================
     # 用户缓存和JWT token管理
     user_cache = {}
     token_cache = {}
@@ -655,14 +734,22 @@ def create_app():
             for token in tokens_to_remove:
                 del token_cache[token]
 
+    # ===================== Utility Functions =====================
     def allowed_file(filename):
-        return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+        """检查文件扩展名是否允许"""
+        if not filename or '.' not in filename:
+            return False
+        return filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
     def ensure_upload_folder():
         """确保上传文件夹存在"""
         upload_folder = app.config['UPLOAD_FOLDER']
         if not os.path.exists(upload_folder):
-            os.makedirs(upload_folder)
+            try:
+                os.makedirs(upload_folder, exist_ok=True)
+            except OSError as e:
+                print(f"创建上传文件夹失败: {e}")
+                return None
         return upload_folder
 
     def get_current_user():
@@ -681,24 +768,7 @@ def create_app():
                 payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
                 user_id = payload.get("user_id")
                 if user_id:
-                    # 检查用户缓存
-                    cached_user = get_cached_user(user_id)
-                    if cached_user:
-                        # 缓存token
-                        cache_token(token, cached_user)
-                        return cached_user
-                    
-                    # 从数据库查询
-                    s = get_session()
-                    try:
-                        user = s.query(User).get(user_id)
-                        if user:
-                            # 缓存用户和token
-                            cache_user(user_id, user)
-                            cache_token(token, user)
-                            return user
-                    finally:
-                        s.close()
+                    return _get_user_by_id(user_id, token)
             except jwt.InvalidTokenError:
                 pass
 
@@ -710,19 +780,7 @@ def create_app():
             user_id = 0
 
         if user_id:
-            # 检查用户缓存
-            cached_user = get_cached_user(user_id)
-            if cached_user:
-                return cached_user
-                
-            s = get_session()
-            try:
-                user = s.query(User).get(user_id)
-                if user:
-                    cache_user(user_id, user)
-                    return user
-            finally:
-                s.close()
+            return _get_user_by_id(user_id)
 
         # 创建临时用户对象用于向后兼容
         class TempUser:
@@ -733,11 +791,36 @@ def create_app():
 
         return TempUser(role, user_id)
 
+    def _get_user_by_id(user_id, token=None):
+        """根据用户ID获取用户信息，带缓存"""
+        # 检查用户缓存
+        cached_user = get_cached_user(user_id)
+        if cached_user:
+            if token:
+                cache_token(token, cached_user)
+            return cached_user
+            
+        # 从数据库查询
+        s = get_session()
+        try:
+            user = s.query(User).get(user_id)
+            if user:
+                # 缓存用户和token
+                cache_user(user_id, user)
+                if token:
+                    cache_token(token, user)
+                return user
+        finally:
+            s.close()
+        
+        return None
+
     def get_role():
         """向后兼容函数"""
         user = get_current_user()
         return user.role, user.id
 
+    # ===================== Permission System =====================
     def require_auth():
         """要求用户已认证"""
         user = get_current_user()
