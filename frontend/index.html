@@ -501,7 +501,7 @@ function addMinutes(dt, m){ return new Date(new Date(dt).getTime() + m*60000) }
 
 createApp({
   setup(){
-    const defaultBase = (location.origin && location.origin !== 'null' && location.origin !== 'file://') ? location.origin : (localStorage.getItem('API') || 'https://nonprominently-overcomplex-sherly.ngrok-free.dev')
+    const defaultBase = (location.origin && location.origin !== 'null' && location.origin !== 'file://') ? location.origin : (localStorage.getItem('API') || 'http://1.13.176.116')
     const api = ref(defaultBase)
     const isLoggedIn = ref(false)
     const user = ref({})

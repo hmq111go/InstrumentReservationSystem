@@ -33,7 +33,7 @@ def create_app():
     FEISHU_APP_SECRET = os.getenv("FEISHU_APP_SECRET", "ZebTrPQlsZKHOA2nJeAv0gjvotAqOiGf")
     FEISHU_REDIRECT_URI = os.getenv(
         "FEISHU_REDIRECT_URI",
-        "https://nonprominently-overcomplex-sherly.ngrok-free.dev/api/auth/feishu/callback"
+        "http://1.13.176.116/api/auth/feishu/callback"
     )
     
     # JWT configuration
