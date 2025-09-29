@@ -1,5 +1,6 @@
 import os
 import uuid
+import secrets
 from datetime import datetime, timedelta, timezone
 from werkzeug.utils import secure_filename
 import threading
@@ -18,7 +19,6 @@ from sqlalchemy.orm import sessionmaker, declarative_base, relationship, scoped_
 
 def create_app():
     app = Flask(__name__)
-    app.secret_key = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
     # 简化session配置，避免HTTPS问题
     app.config['SESSION_COOKIE_SECURE'] = False  # 暂时设为False，避免ngrok问题
     app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -36,7 +36,7 @@ def create_app():
                                     "https://nonprominently-overcomplex-sherly.ngrok-free.dev/api/auth/feishu/callback")
 
     # JWT配置
-    JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
+    JWT_SECRET = os.getenv("JWT_SECRET", secrets.token_urlsafe(32))
     JWT_ALGORITHM = "HS256"
 
     database_url = os.getenv("DATABASE_URL") or "sqlite:///instrument_reservation.db"
