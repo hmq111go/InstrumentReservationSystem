@@ -33,7 +33,7 @@ def create_app():
     FEISHU_APP_SECRET = os.getenv("FEISHU_APP_SECRET", "ZebTrPQlsZKHOA2nJeAv0gjvotAqOiGf")
     FEISHU_REDIRECT_URI = os.getenv(
         "FEISHU_REDIRECT_URI",
-        "http://1.13.176.116/api/auth/feishu/callback"
+        "http://1.13.176.116:5011/api/auth/feishu/callback"
     )
     
     # JWT configuration
@@ -2876,7 +2876,7 @@ def create_app():
     def feishu_authorize_simple():
         """跳转飞书登录页，完成后回调到 /oauth/callback（按简化示例方式）。"""
         # 使用配置中的回调地址
-        use_redirect = FEISHU_REDIRECT_URI or (os.getenv("BASE_URL", request.url_root.rstrip("/")) + "/oauth/callback")
+        use_redirect = FEISHU_REDIRECT_URI or (os.getenv("BASE_URL", request.url_root.rstrip("/")) + "/api/auth/feishu/callback")
         auth_url = (
             "https://open.feishu.cn/open-apis/authen/v1/index"
             f"?app_id={FEISHU_APP_ID}&redirect_uri={use_redirect}"
