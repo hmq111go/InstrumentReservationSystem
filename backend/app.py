@@ -37,7 +37,7 @@ def create_app():
     )
     
     # JWT configuration
-    JWT_SECRET = os.getenv("JWT_SECRET", secrets.token_urlsafe(32))
+    JWT_SECRET = os.getenv("JWT_SECRET", "fixed_jwt_secret_key_here_32_chars_minimum")
     JWT_ALGORITHM = "HS256"
     
     # Database configuration
