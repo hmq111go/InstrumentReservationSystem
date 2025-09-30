@@ -312,7 +312,7 @@ createApp({
       const current = location.pathname.split('/').pop().split('?')[0].split('#')[0]
       return current === page
     }
-    const api = (location.origin && location.protocol!== 'file:') ? location.origin : (localStorage.getItem('API') || 'http://1.13.176.116:5011')
+    const api = (location.origin && location.protocol!== 'file:') ? location.origin : (localStorage.getItem('API') || 'http://1.13.176.116')
     const user = ref({})
     const storedRole = ref(localStorage.getItem('role') || '')
     const storedKeeper = ref(localStorage.getItem('is_keeper') || '')

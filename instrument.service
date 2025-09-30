@@ -1,0 +1,22 @@
+[Unit]
+Description=InstrumentReservationSystem (Gunicorn)
+After=network.target
+
+[Service]
+Type=exec
+User=www-data
+Group=www-data
+WorkingDirectory=/data/InstrumentReservationSystem/backend
+Environment="PORT=5011"
+Environment="BASE_URL=http://1.13.176.116"
+Environment="FEISHU_REDIRECT_URI=http://1.13.176.116/api/auth/feishu/callback"
+Environment="JWT_SECRET=your_fixed_jwt_secret_key_here_32_chars_minimum"
+Environment="DATABASE_URL=sqlite:///instrument_reservation.db"
+
+ExecStart=/data/InstrumentReservationSystem/backend/.venv/bin/gunicorn -w 3 -b 127.0.0.1:5011 'app:create_app()'
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

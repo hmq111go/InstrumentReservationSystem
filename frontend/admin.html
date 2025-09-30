@@ -428,7 +428,7 @@
 const { createApp, ref, computed } = Vue
 createApp({
   setup(){
-    const api = ref((location.origin && location.origin!=='null' && location.protocol!=='file:') ? location.origin : (localStorage.getItem('API')||'http://1.13.176.116:5011'))
+    const api = ref((location.origin && location.origin!=='null' && location.protocol!=='file:') ? location.origin : (localStorage.getItem('API')||'http://1.13.176.116'))
     const user = ref({})
     const users = ref([])
     const userSearch = ref('')

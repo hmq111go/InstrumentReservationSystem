@@ -1340,10 +1340,11 @@ def create_app():
         
         # 检查是否请求分页数据
         if page > 1 or page_size != 10 or request.args.get("page") is not None:
-            # 分页模式
+            # 分页模式，使用 joinedload 优化查询
+            from sqlalchemy.orm import joinedload
             total = q.count()
             offset = (page - 1) * page_size
-            items = q.order_by(Reservation.created_at.desc()).offset(offset).limit(page_size).all()
+            items = q.options(joinedload(Reservation.user), joinedload(Reservation.instrument)).order_by(Reservation.created_at.desc()).offset(offset).limit(page_size).all()
             
             total_pages = (total + page_size - 1) // page_size
             has_prev = page > 1
@@ -1361,8 +1362,9 @@ def create_app():
                 }
             })
         else:
-            # 兼容模式：返回所有数据
-            items = q.order_by(Reservation.created_at.desc()).all()
+            # 兼容模式：返回所有数据，使用 joinedload 优化查询
+            from sqlalchemy.orm import joinedload
+            items = q.options(joinedload(Reservation.user), joinedload(Reservation.instrument)).order_by(Reservation.created_at.desc()).all()
             return jsonify([serialize_reservation(r) for r in items])
 
     @app.get("/api/instruments/<int:instrument_id>/reservations")

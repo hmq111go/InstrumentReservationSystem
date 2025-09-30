@@ -483,7 +483,7 @@
 const { createApp, ref, computed } = Vue
 createApp({
   setup(){
-    const api = ref((location.origin && location.origin!=='null' && location.protocol!=='file:') ? location.origin : (localStorage.getItem('API')||'http://1.13.176.116:5011'))
+    const api = ref((location.origin && location.origin!=='null' && location.protocol!=='file:') ? location.origin : (localStorage.getItem('API')||'http://1.13.176.116'))
     const user = ref({})
     const storedRole = ref(localStorage.getItem('role') || '')
     const storedKeeper = ref(localStorage.getItem('is_keeper') || '')
@@ -919,7 +919,7 @@ createApp({
 
     // 探测 API 地址，确保首页能连通后端
     async function probeAPI(){
-      const candidates = [api.value, localStorage.getItem('API')||'', 'http://1.13.176.116:5011', 'http://127.0.0.1:5011', 'http://localhost:5011'].filter(Boolean)
+      const candidates = [api.value, localStorage.getItem('API')||'', 'http://1.13.176.116', 'http://127.0.0.1:5011', 'http://localhost:5011'].filter(Boolean)
       for(const base of candidates){
         try{
           await axios.get(`${base}/api/health`)

@@ -283,7 +283,7 @@
                 const showQRCode = ref(false);
                 
                 const api = (location.origin && location.protocol !== 'file:') ? 
-                    location.origin : (localStorage.getItem('API') || 'http://1.13.176.116:5011');
+                    location.origin : (localStorage.getItem('API') || 'http://1.13.176.116');
                 
                 const canAccessAdmin = computed(() => {
                     return user.value.role === 'admin' || user.value.role === 'super_admin';

@@ -1,7 +1,7 @@
 // 前端配置文件
 window.APP_CONFIG = {
-  // 生产环境 API 地址
-  PRODUCTION_API: 'http://1.13.176.116:5011',
+  // 生产环境 API 地址（通过 Nginx 代理）
+  PRODUCTION_API: 'http://1.13.176.116',
   
   // 开发环境 API 地址
   DEVELOPMENT_API: 'http://127.0.0.1:5011',
