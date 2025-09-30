@@ -2417,7 +2417,7 @@ def create_app():
         try:
             base_url = request.host_url.rstrip("/")
         except Exception:
-            base_url = os.getenv("BASE_URL", "http://127.0.0.1:5011").rstrip("/")
+            base_url = os.getenv("BASE_URL", "http://1.13.176.116:5011").rstrip("/")
         qr_url = f"{base_url}/feishu-reserve?instrument_id={instrument_id}&autologin=1"
 
         # 若已生成并保存过二维码文件，且域名与当前请求一致，则直接重定向；否则重新生成并更新
@@ -2452,7 +2452,7 @@ def create_app():
         try:
             base_url = request.host_url.rstrip("/")
         except Exception:
-            base_url = os.getenv("BASE_URL", "http://127.0.0.1:5011").rstrip("/")
+            base_url = os.getenv("BASE_URL", "http://1.13.176.116:5011").rstrip("/")
         qr_target_url = f"{base_url}/feishu-reserve?instrument_id={instrument.id}&autologin=1"
 
         # 生成二维码图像（PIL Image）
@@ -2516,7 +2516,7 @@ def create_app():
         try:
             base_url = request.host_url.rstrip("/")
         except Exception:
-            base_url = os.getenv("BASE_URL", "http://127.0.0.1:5011").rstrip("/")
+            base_url = os.getenv("BASE_URL", "http://1.13.176.116:5011").rstrip("/")
         qr_url = f"{base_url}/feishu-reserve?instrument_id={instrument_id}&autologin=1"
         return jsonify({"qrcode_url": qr_url})
 

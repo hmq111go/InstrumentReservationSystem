@@ -331,7 +331,7 @@ function toLocalISOString(dt){
 function addMinutes(dt, m){ return new Date(new Date(dt).getTime() + m*60000) }
 createApp({
   setup(){
-    const api = ref((location.origin && location.origin!=='null' && location.protocol!=='file:') ? location.origin : (localStorage.getItem('API')||'http://127.0.0.1:5011'))
+    const api = ref((location.origin && location.origin!=='null' && location.protocol!=='file:') ? location.origin : (localStorage.getItem('API')||'http://1.13.176.116:5011'))
     const token = ref(localStorage.getItem('token'))
     const headers = computed(()=> token.value ? { 'Authorization': `Bearer ${token.value}` } : {})
     const user = ref(null)

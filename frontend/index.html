@@ -808,12 +808,12 @@ createApp({
     }
 
     async function probeAPI(){
-      const candidates = [api.value, 'http://127.0.0.1:5011', 'http://localhost:5011'].filter(Boolean)
+      const candidates = [api.value, 'http://1.13.176.116:5011', 'http://127.0.0.1:5011', 'http://localhost:5011'].filter(Boolean)
       for(const base of candidates){
         try{ await axios.get(`${base}/api/health`); api.value = base; localStorage.setItem('API', base); break }catch(e){}
       }
       if(!api.value){
-        const input = prompt('请输入后端 API 地址 (如 http://127.0.0.1:5011)') || ''
+        const input = prompt('请输入后端 API 地址 (如 http://1.13.176.116:5011)') || ''
         if(input){ api.value = input; localStorage.setItem('API', input) }
       }
     }
