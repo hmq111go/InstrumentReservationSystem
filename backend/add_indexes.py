@@ -5,7 +5,6 @@
 import os
 import sys
 from sqlalchemy import create_engine, text
-
 def add_indexes():
     # 获取数据库连接
     database_url = os.getenv('DATABASE_URL', 'sqlite:///instrument_reservation.db')
