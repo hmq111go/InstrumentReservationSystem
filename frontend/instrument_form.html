@@ -1,423 +1,750 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>添加/编辑仪器</title>
-  <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css" />
-  <script src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"></script>
-  <script src="https://unpkg.com/axios@1.7.4/dist/axios.min.js"></script>
-  <style>
-    :root {
-      --primary: #007AFF;
-      --primary-hover: #0056CC;
-      --success: #34C759;
-      --warning: #FF9500;
-      --danger: #FF3B30;
-      --background: #F2F2F7;
-      --surface: #FFFFFF;
-      --surface-secondary: #F9F9F9;
-      --text-primary: #1D1D1F;
-      --text-secondary: #86868B;
-      --text-tertiary: #C7C7CC;
-      --border: #E5E5EA;
-      --border-light: #F2F2F7;
-      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
-      --radius: 12px;
-      --radius-sm: 8px;
-      --radius-lg: 16px;
-    }
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>添加/编辑仪器</title>
+    <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css"/>
+    <script src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/axios@1.7.4/dist/axios.min.js"></script>
+    <style>
+        :root {
+            --primary: #007AFF;
+            --primary-hover: #0056CC;
+            --success: #34C759;
+            --warning: #FF9500;
+            --danger: #FF3B30;
+            --background: #F2F2F7;
+            --surface: #FFFFFF;
+            --surface-secondary: #F9F9F9;
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --text-tertiary: #C7C7CC;
+            --border: #E5E5EA;
+            --border-light: #F2F2F7;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-lg: 16px;
+        }
 
-    * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-      background: var(--background);
-      color: var(--text-primary);
-      margin: 0;
-      padding: 20px;
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
+        * {
+            box-sizing: border-box;
+        }
 
-    .container {
-      max-width: 1000px;
-      margin: 0 auto;
-    }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background: var(--background);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
 
-    .card {
-      background: var(--surface);
-      border-radius: var(--radius);
-      padding: 12px;
-      box-shadow: var(--shadow);
-      border: 1px solid var(--border-light);
-      transition: all 0.2s ease;
-      margin-bottom: 12px;
-    }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
 
-    .card:hover {
-      box-shadow: var(--shadow-lg);
-    }
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 12px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-light);
+            transition: all 0.2s ease;
+            margin-bottom: 12px;
+        }
 
-    .form {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(220px, 1fr));
-      gap: 8px;
-    }
-    @media (max-width: 1100px) {
-      .form { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
-    }
-    @media (max-width: 800px) {
-      .form { grid-template-columns: 1fr; }
-    }
+        .card:hover {
+            box-shadow: var(--shadow-lg);
+        }
 
-    /* inline row utilities */
-    .inline-row {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-    }
-    .inline-row-2 {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-      align-items: end;
-    }
-    @media (max-width: 800px) {
-      .inline-row, .inline-row-2 { grid-template-columns: 1fr; }
-    }
+        .form {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(220px, 1fr));
+            gap: 8px;
+        }
 
-    label {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
+        @media (max-width: 1100px) {
+            .form {
+                grid-template-columns: repeat(2, minmax(220px, 1fr));
+            }
+        }
 
-    label span {
-      font-weight: 500;
-      color: var(--text-primary);
-    }
+        @media (max-width: 800px) {
+            .form {
+                grid-template-columns: 1fr;
+            }
+        }
 
-    input, textarea, select {
-      padding: 8px 10px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--surface);
-      font-size: 14px;
-      transition: all 0.2s ease;
-    }
+        /* inline row utilities */
+        .inline-row {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
 
-    input:focus, textarea:focus, select:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
-    }
+        .inline-row-2 {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            align-items: end;
+        }
 
-    .row-2 { grid-column: 1 / -1; }
+        @media (max-width: 800px) {
+            .inline-row, .inline-row-2 {
+                grid-template-columns: 1fr;
+            }
+        }
 
-    /* field width utilities */
-    .field-sm > input,
-    .field-sm > select { max-width: 220px; }
-    .field-md > input,
-    .field-md > select { max-width: 360px; }
-    .field-lg > input,
-    .field-lg > select,
-    .field-lg > textarea { max-width: 520px; }
+        label {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
 
-    /* refine textarea */
-    textarea { min-height: 96px; resize: vertical; }
+        label span {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
 
-    /* character-based widths: ~10 Chinese chars for inputs/selects, 20 for textarea */
-    .form input:not([type="file"]),
-    .form select {
-      width: 10em;
-    }
-    .form textarea {
-      width: 20em;
-    }
+        input, textarea, select {
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
 
-    .btn {
-      padding: 10px 14px;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    .btn-compact { padding: 6px 10px; font-size: 13px; }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
 
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-    }
+        .row-2 {
+            grid-column: 1 / -1;
+        }
 
-    .btn-primary:hover:not(:disabled) {
-      background: var(--primary-hover);
-      transform: translateY(-1px);
-    }
+        /* field width utilities */
+        .field-sm > input,
+        .field-sm > select {
+            max-width: 220px;
+        }
 
-    .btn-secondary {
-      background: var(--surface-secondary);
-      color: var(--text-primary);
-      border: 1px solid var(--border);
-    }
+        .field-md > input,
+        .field-md > select {
+            max-width: 360px;
+        }
 
-    .btn-secondary:hover:not(:disabled) {
-      background: var(--border-light);
-    }
+        .field-lg > input,
+        .field-lg > select,
+        .field-lg > textarea {
+            max-width: 520px;
+        }
 
-    .btn-success {
-      background: var(--success);
-      color: white;
-    }
+        /* refine textarea */
+        textarea {
+            min-height: 96px;
+            resize: vertical;
+        }
 
-    .btn-success:hover:not(:disabled) {
-      background: #16A34A;
-      transform: translateY(-1px);
-    }
+        /* character-based widths: ~10 Chinese chars for inputs/selects, 20 for textarea */
+        .form input:not([type="file"]),
+        .form select {
+            width: 10em;
+        }
 
-    .btn-warning {
-      background: var(--warning);
-      color: white;
-    }
+        .form textarea {
+            width: 20em;
+        }
 
-    .btn-warning:hover:not(:disabled) {
-      background: #D97706;
-      transform: translateY(-1px);
-    }
+        .btn {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
 
-    nav {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
+        .btn-compact {
+            padding: 6px 10px;
+            font-size: 13px;
+        }
 
-    
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
 
-    a {
-      color: var(--primary);
-      text-decoration: none;
-      padding: 8px 12px;
-      border-radius: var(--radius-sm);
-      transition: all 0.2s ease;
-    }
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
 
-    a:hover {
-      background: rgba(0, 122, 255, 0.1);
-    }
+        .btn-secondary {
+            background: var(--surface-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
 
-    .toolbar {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 12px;
-    }
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--border-light);
+        }
 
-    .section-header {
-      background: rgba(255, 149, 0, 0.08);
-      border: 1px solid rgba(255, 149, 0, 0.25);
-      color: var(--warning);
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      font-size: 14px;
-    }
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
 
-    /* Smooth animations */
-    * {
-      transition: all 0.2s ease;
-    }
-  </style>
+        .btn-success:hover:not(:disabled) {
+            background: #16A34A;
+            transform: translateY(-1px);
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            background: #D97706;
+            transform: translateY(-1px);
+        }
+
+        nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+
+        a {
+            color: var(--primary);
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+        }
+
+        a:hover {
+            background: rgba(0, 122, 255, 0.1);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .section-header {
+            background: rgba(255, 149, 0, 0.08);
+            border: 1px solid rgba(255, 149, 0, 0.25);
+            color: var(--warning);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        /* Image Upload Styles */
+        .image-upload-container {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .image-preview {
+            width: 200px;
+            height: 150px;
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--surface-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .image-preview:hover {
+            border-color: var(--primary);
+            background: rgba(0, 122, 255, 0.05);
+        }
+
+        .image-preview.drag-over {
+            border-color: var(--primary);
+            background: rgba(0, 122, 255, 0.1);
+            transform: scale(1.02);
+        }
+
+        .image-preview.has-image {
+            border-style: solid;
+            border-color: var(--success);
+            background: var(--surface);
+        }
+
+        .image-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .image-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .image-container:hover .image-overlay {
+            opacity: 1;
+        }
+
+        .upload-placeholder {
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .upload-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .upload-hint {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        .upload-progress {
+            text-align: center;
+            color: var(--text-primary);
+        }
+
+        .progress-bar {
+            width: 120px;
+            height: 6px;
+            background: var(--border-light);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 8px auto;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .upload-actions {
+            display: flex;
+            align-items: center;
+            align-self: flex-start;
+        }
+
+        /* Smooth animations */
+        * {
+            transition: all 0.2s ease;
+        }
+    </style>
 </head>
 <body>
 <div id="app" class="container">
-  <nav>
-    <a href="home.html">首页</a>
-    <a href="index.html">预约页面</a>
-  </nav>
-  <div class="card">
-    <div class="toolbar">
-      <button class="btn btn-secondary btn-compact" type="button" onclick="history.back()">← 返回</button>
-      <h2 style="margin:0; flex:1; font-size:18px; font-weight:700; color:var(--text-primary)">{{ id? '编辑仪器' : '添加仪器' }}</h2>
-    </div>
-    <div class="form">
-      <div class="row-2 section-header">基础信息（所有人可见）</div>
-    <label><span>仪器名称</span><input v-model="m.name" required /></label>
-    <label><span>资产编号</span><input v-model="m.asset_code" /></label>
-    <label><span>出厂编号</span><input v-model="m.factory_code" /></label>
-    <label><span>型号</span><input v-model="m.model" /></label>
-    <label><span>品牌</span><input v-model="m.brand" /></label>
-    <label><span>分类</span><input v-model="m.category" /></label>
-    <label class="field-sm"><span>数量</span><input v-model.number="m.quantity" type="number" min="1" /></label>
-    <label v-if="canSeeAdmin" class="field-sm"><span>预约刻度(分钟)</span><input v-model.number="m.slot_minutes" type="number" min="5" step="5" /></label>
-    <label><span>存放位置</span><input v-model="m.location" /></label>
-    <label><span>保管单位</span><input v-model="m.keeper_unit" /></label>
-    <label v-if="canSeeAdmin"><span>仪器保管员</span>
-      <select v-model="m.keeper_id">
-        <option value="">无保管员</option>
-        <option v-for="keeper in keepers" :key="keeper.id" :value="keeper.id">
-          {{ keeper.name }}
-        </option>
-      </select>
-    </label>
-    <label class="row-2"><span>照片</span>
-      <input type="file" ref="fileInput" @change="handleFileSelect" accept="image/*" style="display:none" />
-      <div style="display:flex; align-items:center; gap: 12px;">
-        <div style="width:96px;height:72px;border-radius:8px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;background:#F8F8FA;overflow:hidden;">
-          <img v-if="m.photo_url" :src="m.photo_url" alt="预览" style="max-width:100%;max-height:100%;display:block;" />
-          <span v-else style="color:var(--text-secondary);font-size:13px;">无预览</span>
+    <nav>
+        <a href="home.html">首页</a>
+        <a href="index.html">预约页面</a>
+    </nav>
+    <div class="card">
+        <div class="toolbar">
+            <button class="btn btn-secondary btn-compact" type="button" onclick="history.back()">← 返回</button>
+            <h2 style="margin:0; flex:1; font-size:18px; font-weight:700; color:var(--text-primary)">
+                {{ id ? '编辑仪器' : '添加仪器' }}</h2>
         </div>
-        <div style="display:flex; gap:8px;">
-          <button type="button" class="btn btn-success btn-compact" @click="$refs.fileInput.click()">选择图片</button>
+        <div class="form">
+            <div class="row-2 section-header">基础信息（所有人可见）</div>
+            <label><span>仪器名称</span><input v-model="m.name" required/></label>
+            <label><span>资产编号</span><input v-model="m.asset_code"/></label>
+            <label><span>出厂编号</span><input v-model="m.factory_code"/></label>
+            <label><span>型号</span><input v-model="m.model"/></label>
+            <label><span>品牌</span><input v-model="m.brand"/></label>
+            <label><span>分类</span><input v-model="m.category"/></label>
+            <label class="field-sm"><span>数量</span><input v-model.number="m.quantity" type="number" min="1"/></label>
+            <label v-if="canSeeAdmin" class="field-sm"><span>预约刻度(分钟)</span><input v-model.number="m.slot_minutes"
+                                                                                         type="number" min="5"
+                                                                                         step="5"/></label>
+            <label><span>存放位置</span><input v-model="m.location"/></label>
+            <label><span>保管单位</span><input v-model="m.keeper_unit"/></label>
+            <label v-if="canSeeAdmin"><span>仪器保管员</span>
+                <select v-model="m.keeper_id">
+                    <option value="">无保管员</option>
+                    <option v-for="keeper in keepers" :key="keeper.id" :value="keeper.id">
+                        {{ keeper.name }}
+                    </option>
+                </select>
+            </label>
+            <label class="row-2"><span>照片</span>
+                <input type="file" ref="fileInput" @change="handleFileSelect" accept="image/*" style="display:none"/>
+                <div class="image-upload-container">
+                    <div
+                            class="image-preview"
+                            :class="{ 'has-image': m.photo_url, 'drag-over': isDragOver }"
+                            @click="$refs.fileInput.click()"
+                            @dragover.prevent="isDragOver = true"
+                            @dragleave.prevent="isDragOver = false"
+                            @drop.prevent="handleDrop"
+                    >
+                        <div v-if="uploading" class="upload-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div>
+                            </div>
+                            <span class="progress-text">上传中... {{ uploadProgress }}%</span>
+                        </div>
+                        <div v-else-if="m.photo_url" class="image-container">
+                            <img :src="m.photo_url" alt="预览"/>
+                            <div class="image-overlay">
+                                <button type="button" class="btn btn-secondary btn-compact" @click.stop="removeImage">
+                                    删除
+                                </button>
+                            </div>
+                        </div>
+                        <div v-else class="upload-placeholder">
+                            <div class="upload-icon">📷</div>
+                            <div class="upload-text">
+                                <div>点击选择图片或拖拽到此处</div>
+                                <div class="upload-hint">支持 JPG、PNG、GIF，最大 5MB</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="upload-actions">
+                        <button
+                                type="button"
+                                class="btn btn-primary btn-compact"
+                                @click="$refs.fileInput.click()"
+                                :disabled="uploading"
+                        >
+                            {{ uploading ? '上传中...' : '选择图片' }}
+                        </button>
+                    </div>
+                </div>
+            </label>
+            <label class="row-2"><span>备注</span><textarea v-model="m.notes"></textarea></label>
+            <hr class="row-2"/>
+            <div class="row-2 section-header"
+                 style="background:rgba(0,122,255,0.1);border-color:rgba(0,122,255,0.3);color:var(--primary)">
+                管理信息（仅管理员可见）
+            </div>
+            <label v-if="canSeeAdmin"><span>销售公司</span><input v-model="m.vendor_company"/></label>
+            <label v-if="canSeeAdmin" class="field-sm"><span>生产时间</span><input v-model="m.production_date"
+                                                                                   type="date"/></label>
+            <label v-if="canSeeAdmin" class="field-sm"><span>投用时间</span><input v-model="m.start_use_date"
+                                                                                   type="date"/></label>
+            <label v-if="canSeeAdmin" class="field-sm"><span>保修年限</span><input v-model.number="m.warranty_years"
+                                                                                   type="number" min="0"/></label>
+            <label v-if="canSeeAdmin"><span>保修公司</span><input v-model="m.warranty_company"/></label>
+
+
+            <div class="row-2 section-header"
+                 style="background:rgba(52,199,89,0.1);border-color:rgba(52,199,89,0.3);color:var(--success)">仪器状态和权限设置
+            </div>
+            <div class="row-2 inline-row">
+                <label v-if="canManageInstrument" class="field-sm"><span>仪器状态</span>
+                    <select v-model="m.status">
+                        <option value="active">正常使用</option>
+                        <option value="suspended">暂停使用</option>
+                        <option value="maintenance">维护中</option>
+                    </select>
+                </label>
+                <label v-if="canManageInstrument" class="field-sm"><span>是否允许预约</span>
+                    <select v-model="m.booking_enabled">
+                        <option value="true">允许</option>
+                        <option value="false">禁止</option>
+                    </select>
+                </label>
+                <label v-if="canManageInstrument" class="field-sm"><span>是否需要审批</span>
+                    <select v-model="m.requires_approval">
+                        <option value="false">不需要</option>
+                        <option value="true">需要</option>
+                    </select>
+                </label>
+            </div>
+            <div class="row-2 inline-row-2">
+                <label v-if="canManageInstrument" class="field-sm"><span>预约开始时间</span><input
+                        v-model="m.booking_start_time" type="time"/></label>
+                <label v-if="canManageInstrument" class="field-sm"><span>预约结束时间</span><input
+                        v-model="m.booking_end_time" type="time"/></label>
+            </div>
+
+
+            <div class="row-2" style="display:flex; gap:8px; margin-top:8px; justify-content:flex-end">
+                <button class="btn btn-secondary btn-compact" @click="goBack">返回</button>
+                <button class="btn btn-primary btn-compact" @click="save">保存</button>
+            </div>
         </div>
-      </div>
-    </label>
-    <label class="row-2"><span>备注</span><textarea v-model="m.notes"></textarea></label>
-    <hr class="row-2" />
-    <div class="row-2 section-header" style="background:rgba(0,122,255,0.1);border-color:rgba(0,122,255,0.3);color:var(--primary)">管理信息（仅管理员可见）</div>
-    <label v-if="canSeeAdmin"><span>销售公司</span><input v-model="m.vendor_company" /></label>
-    <label v-if="canSeeAdmin" class="field-sm"><span>生产时间</span><input v-model="m.production_date" type="date" /></label>
-    <label v-if="canSeeAdmin" class="field-sm"><span>投用时间</span><input v-model="m.start_use_date" type="date" /></label>
-    <label v-if="canSeeAdmin" class="field-sm"><span>保修年限</span><input v-model.number="m.warranty_years" type="number" min="0" /></label>
-    <label v-if="canSeeAdmin"><span>保修公司</span><input v-model="m.warranty_company" /></label>
-    
-    
-    <div class="row-2 section-header" style="background:rgba(52,199,89,0.1);border-color:rgba(52,199,89,0.3);color:var(--success)">仪器状态和权限设置</div>
-    <div class="row-2 inline-row">
-      <label v-if="canManageInstrument" class="field-sm"><span>仪器状态</span>
-        <select v-model="m.status">
-          <option value="active">正常使用</option>
-          <option value="suspended">暂停使用</option>
-          <option value="maintenance">维护中</option>
-        </select>
-      </label>
-      <label v-if="canManageInstrument" class="field-sm"><span>是否允许预约</span>
-        <select v-model="m.booking_enabled">
-          <option value="true">允许</option>
-          <option value="false">禁止</option>
-        </select>
-      </label>
-      <label v-if="canManageInstrument" class="field-sm"><span>是否需要审批</span>
-        <select v-model="m.requires_approval">
-          <option value="false">不需要</option>
-          <option value="true">需要</option>
-        </select>
-      </label>
     </div>
-    <div class="row-2 inline-row-2">
-      <label v-if="canManageInstrument" class="field-sm"><span>预约开始时间</span><input v-model="m.booking_start_time" type="time" /></label>
-      <label v-if="canManageInstrument" class="field-sm"><span>预约结束时间</span><input v-model="m.booking_end_time" type="time" /></label>
-    </div>
-    
-    
-    <div class="row-2" style="display:flex; gap:8px; margin-top:8px; justify-content:flex-end">
-      <button class="btn btn-secondary btn-compact" @click="goBack">返回</button>
-      <button class="btn btn-primary btn-compact" @click="save">保存</button>
-    </div>
-  </div>
 </div>
 
 <script>
-const { createApp, ref, computed } = Vue
-createApp({
-  setup(){
-    const api = localStorage.getItem('API')||''
-    const id = Number(new URLSearchParams(location.search).get('id')||'') || null
-    const m = ref({ name:'', quantity:1, slot_minutes:15 })
-    const token = localStorage.getItem('token')
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
-    const user = ref({})
-    const selectedFile = ref(null)
-    const keepers = ref([])
-    const canSeeAdmin = computed(()=> user.value.role==='admin' || user.value.role==='super_admin')
-    const canManageInstrument = computed(()=> {
-      if (canSeeAdmin.value) return true
-      // 检查是否是仪器保管人
-      return id && m.value.keeper_id === user.value.id
-    })
+    const {createApp, ref, computed} = Vue
+    createApp({
+        setup() {
+            const api = localStorage.getItem('API') || ''
+            const id = Number(new URLSearchParams(location.search).get('id') || '') || null
+            const m = ref({name: '', quantity: 1, slot_minutes: 15})
+            const token = localStorage.getItem('token')
+            const headers = token ? {'Authorization': `Bearer ${token}`} : {}
+            const user = ref({})
+            const selectedFile = ref(null)
+            const keepers = ref([])
+            const isDragOver = ref(false)
+            const uploading = ref(false)
+            const uploadProgress = ref(0)
+            const canSeeAdmin = computed(() => user.value.role === 'admin' || user.value.role === 'super_admin')
+            const canManageInstrument = computed(() => {
+                if (canSeeAdmin.value) return true
+                // 检查是否是仪器保管人
+                return id && m.value.keeper_id === user.value.id
+            })
 
-    async function load(){
-      if(!id) return
-      const { data } = await axios.get(`${api}/api/instruments/${id}`)
-      const found = data
-      if(found) m.value = found
-    }
+            async function load() {
+                if (!id) return
+                const {data} = await axios.get(`${api}/api/instruments/${id}`)
+                const found = data
+                if (found) m.value = found
+            }
 
-    async function loadKeepers(){
-      try {
-        const { data } = await axios.get(`${api}/api/users`, { headers })
-        // 加载所有用户作为保管员候选
-        keepers.value = data
-      } catch (error) {
-        console.error('加载用户列表失败:', error)
-      }
-    }
+            async function loadKeepers() {
+                try {
+                    const {data} = await axios.get(`${api}/api/users`, {headers})
+                    // 加载所有用户作为保管员候选
+                    keepers.value = data
+                } catch (error) {
+                    console.error('加载用户列表失败:', error)
+                }
+            }
 
-    function handleFileSelect(event) {
-      const file = event.target.files[0]
-      if (file) {
-        selectedFile.value = file
-        // 预览图片
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          m.value.photo_url = e.target.result
+            function validateImage(file) {
+                const maxSize = 5 * 1024 * 1024 // 5MB
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+
+                if (!allowedTypes.includes(file.type)) {
+                    alert('请选择 JPG、PNG 或 GIF 格式的图片')
+                    return false
+                }
+
+                if (file.size > maxSize) {
+                    alert('图片大小不能超过 5MB')
+                    return false
+                }
+
+                return true
+            }
+
+            function processImage(file) {
+                return new Promise((resolve) => {
+                    const canvas = document.createElement('canvas')
+                    const ctx = canvas.getContext('2d')
+                    const img = new Image()
+
+                    img.onload = () => {
+                        // 计算新尺寸，最大宽度800px，保持比例
+                        const maxWidth = 800
+                        let {width, height} = img
+
+                        if (width > maxWidth) {
+                            height = (height * maxWidth) / width
+                            width = maxWidth
+                        }
+
+                        canvas.width = width
+                        canvas.height = height
+
+                        // 绘制压缩后的图片
+                        ctx.drawImage(img, 0, 0, width, height)
+
+                        // 转换为blob
+                        canvas.toBlob(resolve, 'image/jpeg', 0.8)
+                    }
+
+                    img.src = URL.createObjectURL(file)
+                })
+            }
+
+            function handleFileSelect(event) {
+                const file = event.target.files[0]
+                if (file && validateImage(file)) {
+                    selectedFile.value = file
+                    // 预览图片
+                    const reader = new FileReader()
+                    reader.onload = (e) => {
+                        m.value.photo_url = e.target.result
+                    }
+                    reader.readAsDataURL(file)
+                    // 自动上传
+                    uploadImage()
+                }
+            }
+
+            function handleDrop(event) {
+                isDragOver.value = false
+                const files = event.dataTransfer.files
+                if (files.length > 0) {
+                    const file = files[0]
+                    if (validateImage(file)) {
+                        selectedFile.value = file
+                        // 预览图片
+                        const reader = new FileReader()
+                        reader.onload = (e) => {
+                            m.value.photo_url = e.target.result
+                        }
+                        reader.readAsDataURL(file)
+                        // 自动上传
+                        uploadImage()
+                    }
+                }
+            }
+
+            function removeImage() {
+                m.value.photo_url = ''
+                selectedFile.value = null
+                // 清空文件输入
+                if (fileInput.value) {
+                    fileInput.value.value = ''
+                }
+            }
+
+
+            async function uploadImage() {
+                if (!selectedFile.value || uploading.value) return
+
+                uploading.value = true
+                uploadProgress.value = 0
+
+                try {
+                    // 压缩图片
+                    uploadProgress.value = 20
+                    const compressedFile = await processImage(selectedFile.value)
+
+                    const formData = new FormData()
+                    formData.append('file', compressedFile, selectedFile.value.name)
+
+                    uploadProgress.value = 40
+
+                    const {data} = await axios.post(`${api}/api/upload/image`, formData, {
+                        headers: {
+                            ...headers,
+                            'Content-Type': 'multipart/form-data'
+                        },
+                        onUploadProgress: (progressEvent) => {
+                            const progress = Math.round((progressEvent.loaded * 60) / progressEvent.total) + 40
+                            uploadProgress.value = Math.min(progress, 100)
+                        }
+                    })
+
+                    m.value.photo_url = data.url
+                    selectedFile.value = null
+                    uploadProgress.value = 100
+
+                    // 延迟一下让用户看到100%进度
+                    setTimeout(() => {
+                        uploading.value = false
+                        uploadProgress.value = 0
+                    }, 500)
+
+                    alert('图片上传成功')
+                } catch (error) {
+                    console.error('上传失败:', error)
+                    uploading.value = false
+                    uploadProgress.value = 0
+                    alert('图片上传失败: ' + (error.response?.data?.error || error.message))
+                }
+            }
+
+            function goBack() {
+                // 智能返回：检查来源页面
+                const referrer = document.referrer
+                if (referrer && referrer.includes('admin_instruments.html')) {
+                    location.href = 'admin_instruments.html'
+                } else if (referrer && referrer.includes('admin.html')) {
+                    location.href = 'admin.html'
+                } else {
+                    location.href = 'home.html'
+                }
+            }
+
+            async function save() {
+                if (id) {
+                    // 先保存可编辑字段
+                    const {keeper_id, ...rest} = m.value
+                    await axios.put(`${api}/api/instruments/${id}`, rest, {headers})
+                    // 管理员可通过专门接口更新保管员
+                    if (canSeeAdmin.value) {
+                        await axios.put(`${api}/api/instruments/${id}/keeper`, {keeper_id: keeper_id || null}, {headers})
+                    }
+                } else {
+                    // 创建时允许直接提交全部字段（后端会校验权限）
+                    const created = await axios.post(`${api}/api/instruments`, m.value, {headers})
+                    // 若选择了保管员，且当前是管理员，则调用分配接口确保一致
+                    if (canSeeAdmin.value && m.value.keeper_id) {
+                        const newId = created.data.id
+                        await axios.put(`${api}/api/instruments/${newId}/keeper`, {keeper_id: m.value.keeper_id}, {headers})
+                    }
+                }
+                alert('已保存')
+                goBack()
+            }
+
+            axios.get(`${api}/api/auth/me`, {headers}).then(r => user.value = r.data).catch(() => {
+            })
+            load()
+            loadKeepers()
+            return {
+                id, m, save, goBack, canSeeAdmin, canManageInstrument,
+                selectedFile, handleFileSelect, uploadImage, keepers,
+                isDragOver, uploading, uploadProgress, handleDrop, removeImage
+            }
         }
-        reader.readAsDataURL(file)
-      }
-    }
-
-    
-
-
-    function goBack() {
-      // 智能返回：检查来源页面
-      const referrer = document.referrer
-      if (referrer && referrer.includes('admin_instruments.html')) {
-        location.href = 'admin_instruments.html'
-      } else if (referrer && referrer.includes('admin.html')) {
-        location.href = 'admin.html'
-      } else {
-        location.href = 'home.html'
-      }
-    }
-
-    async function save(){
-      if(id){
-        // 先保存可编辑字段
-        const { keeper_id, ...rest } = m.value
-        await axios.put(`${api}/api/instruments/${id}`, rest, { headers })
-        // 管理员可通过专门接口更新保管员
-        if (canSeeAdmin.value) {
-          await axios.put(`${api}/api/instruments/${id}/keeper`, { keeper_id: keeper_id || null }, { headers })
-        }
-      } else {
-        // 创建时允许直接提交全部字段（后端会校验权限）
-        const created = await axios.post(`${api}/api/instruments`, m.value, { headers })
-        // 若选择了保管员，且当前是管理员，则调用分配接口确保一致
-        if (canSeeAdmin.value && m.value.keeper_id) {
-          const newId = created.data.id
-          await axios.put(`${api}/api/instruments/${newId}/keeper`, { keeper_id: m.value.keeper_id }, { headers })
-        }
-      }
-      alert('已保存')
-      goBack()
-    }
-
-    axios.get(`${api}/api/auth/me`, { headers }).then(r=> user.value=r.data).catch(()=>{})
-    load()
-    loadKeepers()
-    return { id, m, save, goBack, canSeeAdmin, canManageInstrument, selectedFile, keepers }
-  }
-}).mount('#app')
+    }).mount('#app')
 </script>
 </body>
 </html>
-
-
