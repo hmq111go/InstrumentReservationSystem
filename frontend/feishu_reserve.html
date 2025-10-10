@@ -259,7 +259,6 @@
     </div>
     <div style="flex:1">
       <div class="title">{{ instr?.name || '仪器详情' }}</div>
-      <div class="sub">{{ instr?.brand }} {{ instr?.model }} · {{ instr?.location }}</div>
       <div class="sub">保管员：{{ instr?.keeper_name || '无' }}<span v-if="instr?.keeper_phone"> · <a :href="`tel:${instr.keeper_phone}`">{{ instr.keeper_phone }}</a></span></div>
       <div class="sub" v-if="user && user.name">当前用户：{{ user.name }}</div>
       <div v-if="instr?.current_maintenance" style="color:#ff9500; font-size:12px; margin-top:4px">
@@ -284,7 +283,7 @@
     <div v-for="slot in slots" :key="slot.key" class="slot-item" :class="slot.className" @click="clickSlot(slot)">
       <div>
         <div style="font-weight:600">{{ slot.label }}</div>
-        <div v-if="slot.resv" style="font-size:12px;color:#475569">{{ slot.resv.employee_name }} · {{ formatDT(slot.resv.start_time) }}→{{ formatDT(slot.resv.end_time) }}</div>
+        <div v-if="slot.resv" style="font-size:12px;color:#475569">{{ slot.resv.employee_name }} </div>
         <div v-if="slot.resv && slot.resv.status==='pending'" style="font-size:11px;color:#ff9500;margin-top:2px">审核中</div>
       </div>
       <div>
