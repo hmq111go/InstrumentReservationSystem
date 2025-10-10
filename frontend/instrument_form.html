@@ -276,7 +276,6 @@
         </div>
         <div style="display:flex; gap:8px;">
           <button type="button" class="btn btn-success btn-compact" @click="$refs.fileInput.click()">选择图片</button>
-          <button type="button" class="btn btn-warning btn-compact" @click="uploadImage" :disabled="!selectedFile">上传</button>
         </div>
       </div>
     </label>
@@ -376,27 +375,6 @@ createApp({
 
     
 
-    async function uploadImage() {
-      if (!selectedFile.value) return
-      
-      const formData = new FormData()
-      formData.append('file', selectedFile.value)
-      
-      try {
-        const { data } = await axios.post(`${api}/api/upload/image`, formData, { 
-          headers: { 
-            ...headers,
-            'Content-Type': 'multipart/form-data'
-          } 
-        })
-        m.value.photo_url = data.url
-        selectedFile.value = null
-        alert('图片上传成功')
-      } catch (error) {
-        console.error('上传失败:', error)
-        alert('图片上传失败: ' + (error.response?.data?.error || error.message))
-      }
-    }
 
     function goBack() {
       // 智能返回：检查来源页面
@@ -435,7 +413,7 @@ createApp({
     axios.get(`${api}/api/auth/me`, { headers }).then(r=> user.value=r.data).catch(()=>{})
     load()
     loadKeepers()
-    return { id, m, save, goBack, canSeeAdmin, canManageInstrument, selectedFile, handleFileSelect, uploadImage, keepers }
+    return { id, m, save, goBack, canSeeAdmin, canManageInstrument, selectedFile, keepers }
   }
 }).mount('#app')
 </script>
