@@ -6,6 +6,9 @@ import threading
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
+import hmac
+import hashlib
+import base64
 
 # Third-party imports
 import jwt
@@ -90,6 +93,7 @@ def create_app():
     FEISHU_TOKEN_URL = f"{FEISHU_API_BASE}/auth/v3/tenant_access_token/internal"
     FEISHU_MESSAGE_URL = f"{FEISHU_API_BASE}/im/v1/messages"
     FEISHU_TIMEOUT = 10
+    FEISHU_CARD_CALLBACK_PATH = "/api/feishu/card_callback"
 
     def get_tenant_access_token() -> str:
         """获取飞书租户访问令牌，带缓存机制"""
@@ -121,6 +125,24 @@ def create_app():
             print(f"获取飞书token未知错误: {e}")
         
         return None
+
+    def verify_feishu_signature(req) -> bool:
+        """校验飞书回调签名。参考文档: header X-Lark-Signature / X-Lark-Request-Timestamp / X-Lark-Request-Nonce
+        算法: base64( HmacSha256( app_secret, timestamp + nonce + body ) )
+        """
+        try:
+            timestamp = req.headers.get("X-Lark-Request-Timestamp") or req.headers.get("X-Request-Timestamp")
+            nonce = req.headers.get("X-Lark-Request-Nonce") or req.headers.get("X-Request-Nonce")
+            signature = req.headers.get("X-Lark-Signature") or req.headers.get("X-Signature")
+            if not (timestamp and nonce and signature):
+                return False
+            body_bytes = req.get_data() or b""
+            base_string = (str(timestamp) + str(nonce)).encode("utf-8") + body_bytes
+            digest = hmac.new(FEISHU_APP_SECRET.encode("utf-8"), base_string, hashlib.sha256).digest()
+            expected = base64.b64encode(digest).decode("utf-8")
+            return hmac.compare_digest(expected, signature)
+        except Exception:
+            return False
 
     def send_feishu_text_to_user(feishu_user_id: str, text: str) -> bool:
         """发送飞书文本消息给用户"""
@@ -195,12 +217,9 @@ def create_app():
             print("未获取到飞书access_token")
             return False
         
-        # Build approve/reject links with signed token
-        base_url = (request.url_root or "").rstrip("/")
+        # Build approve/reject button tokens
         approve_token = build_action_token(reservation.id, keeper.id, "approve")
         reject_token = build_action_token(reservation.id, keeper.id, "reject")
-        approve_url = f"{base_url}/api/feishu/action?token={approve_token}"
-        reject_url = f"{base_url}/api/feishu/action?token={reject_token}"
         
         # Format time strings
         start_str = reservation.start_time.strftime("%Y-%m-%d %H:%M")
@@ -212,29 +231,34 @@ def create_app():
             "schema": "2.0",
             "config": {"wide_screen_mode": True},
             "header": {
-                "title": {
-                    "tag": "plain_text",
-                    "content": "仪器预约待审核"
-                }
+                "title": {"tag": "plain_text", "content": "仪器预约待审核"}
             },
-            "body": {
-                "elements": [
-                    {
-                        "tag": "div",
-                        "text": {
-                            "tag": "lark_md",
-                            "content": f"**申请人：**{reserver_name}\n**仪器：**{instrument_name}\n**时段：**{start_str} - {end_str}"
-                        }
-                    },
-                    {
-                        "tag": "div",
-                        "text": {
-                            "tag": "lark_md",
-                            "content": f"[同意]({approve_url})    [驳回]({reject_url})"
-                        }
+            "elements": [
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": f"**申请人：**{reserver_name}\n**仪器：**{instrument_name}\n**时段：**{start_str} - {end_str}"
                     }
-                ]
-            }
+                },
+                {
+                    "tag": "action",
+                    "actions": [
+                        {
+                            "tag": "button",
+                            "text": {"tag": "plain_text", "content": "同意"},
+                            "type": "primary",
+                            "value": {"token": approve_token, "act": "approve"}
+                        },
+                        {
+                            "tag": "button",
+                            "text": {"tag": "plain_text", "content": "驳回"},
+                            "type": "danger",
+                            "value": {"token": reject_token, "act": "reject"}
+                        }
+                    ]
+                }
+            ]
         }
         
         try:
@@ -1592,34 +1616,61 @@ def create_app():
     def feishu_action_callback():
         """处理飞书卡片中同意/驳回按钮的签名链接。
         链接中包含短期有效的签名token，不依赖登录状态。
-        """
+        在飞书内点击后会打开一个简单的结果页面，便于操作者确认。"""
         token = request.args.get("token")
+        def render_html(message: str):
+            # 简单的确认结果页面，适配飞书内置浏览器
+            return (
+                f"""
+                <html>
+                  <head>
+                    <meta charset='utf-8'/>
+                    <meta name='viewport' content='width=device-width, initial-scale=1'/>
+                    <title>操作结果</title>
+                    <style>
+                      body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; padding: 32px; color: #1f2328; }}
+                      .card {{ max-width: 520px; margin: 0 auto; border: 1px solid #e1e4e8; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }}
+                      .title {{ font-size: 18px; font-weight: 600; margin-bottom: 8px; }}
+                      .tip {{ color: #57606a; font-size: 14px; margin-top: 12px; }}
+                      .btn {{ display: inline-block; margin-top: 16px; padding: 10px 16px; background: #2da44e; color: #fff; text-decoration: none; border-radius: 6px; }}
+                    </style>
+                  </head>
+                  <body>
+                    <div class='card'>
+                      <div class='title'>仪器预约审批</div>
+                      <div>{message}</div>
+                      <div class='tip'>可直接关闭此页面返回飞书。</div>
+                    </div>
+                  </body>
+                </html>
+                """
+            )
         if not token:
-            return "invalid token", 400
+            return render_html("链接无效或缺少参数。请返回飞书重试。"), 400
         try:
             data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         except Exception:
-            return "invalid token", 400
+            return render_html("链接已失效或不正确。请返回飞书重试。"), 400
         if data.get("typ") != "feishu_action_v1":
-            return "invalid token", 400
+            return render_html("链接无效。"), 400
         reservation_id = int(data.get("rid") or 0)
         keeper_id = int(data.get("kid") or 0)
         action = data.get("act")
         if reservation_id <= 0 or keeper_id <= 0 or action not in ("approve", "reject"):
-            return "invalid token", 400
+            return render_html("链接参数不正确。"), 400
         s = get_session()
         try:
             res = s.query(Reservation).get(reservation_id)
             if not res:
-                return "not found", 404
+                return render_html("预约不存在或已被删除。"), 404
             inst = s.query(Instrument).get(res.instrument_id)
             if not inst or getattr(inst, "keeper_id", None) != keeper_id:
-                return "permission denied", 403
+                return render_html("无权限执行此操作。"), 403
             if res.status != "pending":
-                return "already processed", 200
+                return render_html("该预约已处理过，无需重复操作。")
             if action == "approve":
                 if has_conflict(s, res.instrument_id, res.start_time, res.end_time, exclude_id=res.id):
-                    return "time conflict", 409
+                    return render_html("时间冲突：该时段已被占用。"), 409
                 res.status = "approved"
             else:
                 res.status = "rejected"
@@ -1637,9 +1688,138 @@ def create_app():
                     send_feishu_text_to_user(reserver.feishu_user_id, msg)
             except Exception:
                 pass
+            # 给保管员也发一条确认消息，确保操作者有明确反馈
+            try:
+                keeper = s.query(User).get(keeper_id)
+                if keeper and keeper.feishu_user_id:
+                    start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
+                    end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                    keeper_msg = (
+                        f"已同意预约：{inst.name}，{start_str}-{end_str}。已通知申请人。" if res.status == "approved"
+                        else f"已驳回预约：{inst.name}，{start_str}-{end_str}。已通知申请人。"
+                    )
+                    send_feishu_text_to_user(keeper.feishu_user_id, keeper_msg)
+            except Exception:
+                pass
             # 简单返回HTML以便在飞书内显示
-            html = f"<html><body style='font-family: -apple-system, system-ui'>操作成功：{ '已同意' if res.status=='approved' else '已驳回' }。</body></html>"
-            return html
+            status_text = "已同意" if res.status == "approved" else "已驳回"
+            return render_html(f"操作成功：{status_text}。")
+        finally:
+            s.close()
+
+    @app.post(FEISHU_CARD_CALLBACK_PATH)
+    def feishu_card_callback():
+        """飞书互动卡片回调：按钮点击后由飞书服务器调用。
+        要求在飞书开放平台配置回调URL，并启用签名校验。
+        """
+        # 处理 URL 验证 challenge
+        data = request.get_json(silent=True) or {}
+        if data.get("type") == "url_verification":
+            # 官方文档：需回 echo 字段
+            return jsonify({"challenge": data.get("challenge")})
+
+        # 校验签名
+        if not verify_feishu_signature(request):
+            return jsonify({"code": 1, "msg": "invalid signature"}), 403
+
+        event = data.get("event", {})
+        action = event.get("action", {})
+        action_value = action.get("value", {})
+        token = action_value.get("token")
+        act = action_value.get("act")
+
+        if not token:
+            return jsonify({"code": 1, "msg": "missing token"}), 400
+        try:
+            jwt_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        except Exception:
+            # 更新卡片为失败状态
+            return jsonify({
+                "code": 0,
+                "msg": "ok",
+                "card": {
+                    "elements": [{"tag": "div", "text": {"tag": "lark_md", "content": "链接已失效，请重新操作。"}}]
+                }
+            })
+
+        if jwt_data.get("typ") != "feishu_action_v1":
+            return jsonify({"code": 1, "msg": "invalid token"}), 400
+
+        rid = int(jwt_data.get("rid") or 0)
+        kid = int(jwt_data.get("kid") or 0)
+        act = act or jwt_data.get("act")
+        if rid <= 0 or kid <= 0 or act not in ("approve", "reject"):
+            return jsonify({"code": 1, "msg": "invalid params"}), 400
+
+        s = get_session()
+        try:
+            res = s.query(Reservation).get(rid)
+            if not res:
+                return jsonify({"code": 0, "msg": "ok", "card": {"elements": [{"tag": "div", "text": {"tag": "lark_md", "content": "预约不存在。"}}]}})
+            inst = s.query(Instrument).get(res.instrument_id)
+            if not inst or getattr(inst, "keeper_id", None) != kid:
+                return jsonify({"code": 0, "msg": "ok", "card": {"elements": [{"tag": "div", "text": {"tag": "lark_md", "content": "无权限执行此操作。"}}]}})
+
+            # 已处理
+            if res.status != "pending":
+                start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
+                end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                status_text = "已同意" if res.status == "approved" else ("已驳回" if res.status == "rejected" else res.status)
+                return jsonify({
+                    "code": 0,
+                    "msg": "ok",
+                    "card": {
+                        "elements": [
+                            {"tag": "div", "text": {"tag": "lark_md", "content": f"该预约已处理过（{status_text}）。\n{inst.name if inst else ''} {start_str}-{end_str}"}}
+                        ]
+                    }
+                })
+
+            if act == "approve":
+                if has_conflict(s, res.instrument_id, res.start_time, res.end_time, exclude_id=res.id):
+                    return jsonify({
+                        "code": 0,
+                        "msg": "ok",
+                        "card": {"elements": [{"tag": "div", "text": {"tag": "lark_md", "content": "时间冲突：该时段已被占用。"}}]}
+                    })
+                res.status = "approved"
+            else:
+                res.status = "rejected"
+            s.commit()
+
+            # 通知双方
+            try:
+                reserver = s.query(User).get(res.user_id)
+                if reserver and reserver.feishu_user_id:
+                    start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
+                    end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                    msg = (
+                        f"您的仪器预约已通过：{inst.name}，{start_str}-{end_str}" if res.status == "approved" else f"您的仪器预约已被驳回：{inst.name}，{start_str}-{end_str}"
+                    )
+                    send_feishu_text_to_user(reserver.feishu_user_id, msg)
+                keeper = s.query(User).get(kid)
+                if keeper and keeper.feishu_user_id:
+                    start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
+                    end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                    keeper_msg = (
+                        f"已同意预约：{inst.name}，{start_str}-{end_str}。已通知申请人。" if res.status == "approved" else f"已驳回预约：{inst.name}，{start_str}-{end_str}。已通知申请人。"
+                    )
+                    send_feishu_text_to_user(keeper.feishu_user_id, keeper_msg)
+            except Exception:
+                pass
+
+            # 返回更新后的卡片（显示操作结果，隐藏按钮）
+            start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
+            end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+            status_text = "已同意" if res.status == "approved" else "已驳回"
+            updated_card = {
+                "elements": [
+                    {"tag": "div", "text": {"tag": "lark_md", "content": f"{inst.name if inst else ''} {start_str}-{end_str}"}},
+                    {"tag": "hr"},
+                    {"tag": "div", "text": {"tag": "lark_md", "content": f"操作成功：{status_text}。"}}
+                ]
+            }
+            return jsonify({"code": 0, "msg": "ok", "card": updated_card})
         finally:
             s.close()
 
