@@ -1758,10 +1758,10 @@ def create_app():
             
             if not all([reservation_id, keeper_id, action]):
                 # 按飞书规范返回 200 + toast，避免 200672
-                return jsonify({"toast": {"text": "无效的操作数据"}})
+                return jsonify({"toast": {"type": "error", "content": "无效的操作数据"}})
             
             if action not in ("approve", "reject"):
-                return jsonify({"toast": {"text": "无效操作"}})
+                return jsonify({"toast": {"type": "error", "content": "无效操作"}})
             
             s = get_session()
             try:
@@ -1774,15 +1774,20 @@ def create_app():
                     return jsonify({"error": "permission_denied"}), 403
                 
                 if res.status != "pending":
-                    # 返回当前状态的卡片（需包在 card 字段内）
-                    return jsonify({"card": build_status_card(res, inst, action)})
+                    # 返回当前状态的卡片（需包在 card 字段内，指定 type=raw）
+                    return jsonify({
+                        "card": {
+                            "type": "raw",
+                            "data": build_status_card(res, inst, action)
+                        }
+                    })
                 
                 # 处理审批
                 if action == "approve":
                     if has_conflict(s, res.instrument_id, res.start_time, res.end_time, exclude_id=res.id):
                         # 返回 toast 提示，维持原卡片不变
                         return jsonify({
-                            "toast": {"text": "时间冲突，无法通过"}
+                            "toast": {"type": "error", "content": "时间冲突，无法通过"}
                         })
                     res.status = "approved"
                 else:
@@ -1815,10 +1820,11 @@ def create_app():
                 toast_text = "已同意" if action == "approve" else "已驳回"
                 
                 return jsonify({
-                    "card": card_response,
-                    "toast": {
-                        "text": toast_text
-                    }
+                    "card": {
+                        "type": "raw",
+                        "data": card_response
+                    },
+                    "toast": {"type": "success", "content": toast_text}
                 })
                 
             finally:
