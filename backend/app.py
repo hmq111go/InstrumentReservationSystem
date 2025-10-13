@@ -227,28 +227,35 @@ def create_app():
                         }
                     },
                     {
-                        "tag": "action",
-                        "actions": [
+                        "tag": "button",
+                        "element_id": "approve_btn",
+                        "type": "primary",
+                        "text": {
+                            "tag": "plain_text",
+                            "content": "同意"
+                        },
+                        "behaviors": [
                             {
-                                "tag": "button",
-                                "text": {
-                                    "tag": "plain_text",
-                                    "content": "同意"
-                                },
-                                "type": "primary",
+                                "type": "callback",
                                 "value": {
                                     "reservation_id": reservation.id,
                                     "keeper_id": keeper.id,
                                     "action": "approve"
                                 }
-                            },
+                            }
+                        ]
+                    },
+                    {
+                        "tag": "button",
+                        "element_id": "reject_btn",
+                        "type": "default",
+                        "text": {
+                            "tag": "plain_text",
+                            "content": "驳回"
+                        },
+                        "behaviors": [
                             {
-                                "tag": "button",
-                                "text": {
-                                    "tag": "plain_text",
-                                    "content": "驳回"
-                                },
-                                "type": "default",
+                                "type": "callback",
                                 "value": {
                                     "reservation_id": reservation.id,
                                     "keeper_id": keeper.id,
@@ -1691,8 +1698,13 @@ def create_app():
             if not data:
                 return jsonify({"error": "invalid_request"}), 400
             
-            # 解析回调数据
-            action_value = data.get("action", {}).get("value", {})
+            # 解析回调数据（兼容新版 card.action.trigger 的 event 包裹，以及旧版直出结构）
+            event = data.get("event") or {}
+            action_value = (
+                (event.get("action") or {}).get("value", {})
+                if isinstance(event, dict) and event.get("action")
+                else (data.get("action") or {}).get("value", {})
+            )
             reservation_id = action_value.get("reservation_id")
             keeper_id = action_value.get("keeper_id") 
             action = action_value.get("action")
