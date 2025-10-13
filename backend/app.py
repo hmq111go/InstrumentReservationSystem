@@ -1,7 +1,6 @@
 # Standard library imports
 import json
 import os
-import secrets
 import threading
 import time
 import uuid
@@ -9,7 +8,6 @@ from datetime import datetime, timedelta, timezone
 
 # Third-party imports
 import jwt
-import qrcode
 import requests
 from flask import Flask, jsonify, request, send_file, send_from_directory, redirect
 from flask_cors import CORS
@@ -262,7 +260,9 @@ def create_app():
                         "tag": "div",
                         "text": {
                             "tag": "lark_md",
+                            # "content": f"**申请人：**{reserver_name}\n**仪器：**{instrument_name}\n**时段：**{start_str} - {end_str}"
                             "content": f"**申请人：**{reserver_name}\n**仪器：**{instrument_name}\n**时段：**{start_str} - {end_str}"
+
                         }
                     },
                     {
