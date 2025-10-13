@@ -260,7 +260,7 @@ def create_app():
                     {
                         "tag": "div",
                         "text": {
-                            "tag": "lark_md",
+                            "tag": "md",
                             "content": f"**申请人：**{reserver_name}\n**仪器：**{instrument_name}\n**时段：**{start_str} - {end_str}"
                         }
                     },
@@ -380,14 +380,14 @@ def create_app():
                     {
                         "tag": "div",
                         "text": {
-                            "tag": "lark_md",
-                            "content": f"**申请人：**{reserver_name}\n**仪器：**{instrument.name if instrument else '未知仪器'}\n**时段：**{start_str} - {end_str}"
+                            "tag": "markdown",
+                            "content": f"**申请人：** {reserver_name}\n**仪器：**{instrument.name if instrument else '未知仪器'}\n**时段：**{start_str} - {end_str}"
                         }
                     },
                     {
                         "tag": "div",
                         "text": {
-                            "tag": "lark_md",
+                            "tag": "markdown",
                             "content": f"**状态：** {status_text}\n**处理时间：** {current_time}"
                         }
                     }
