@@ -90,6 +90,7 @@ def create_app():
     FEISHU_TOKEN_URL = f"{FEISHU_API_BASE}/auth/v3/tenant_access_token/internal"
     FEISHU_MESSAGE_URL = f"{FEISHU_API_BASE}/im/v1/messages"
     FEISHU_TIMEOUT = 10
+
     # 更新已发送卡片：/im/v1/messages/{message_id}/card
     def update_feishu_card(open_message_id: str, card: dict, update_token: str) -> bool:
         """使用回调提供的 token 更新原消息卡片内容（有效期30分钟，最多2次）。
@@ -260,7 +261,7 @@ def create_app():
                     {
                         "tag": "div",
                         "text": {
-                            "tag": "md",
+                            "tag": "lark_md",
                             "content": f"**申请人：**{reserver_name}\n**仪器：**{instrument_name}\n**时段：**{start_str} - {end_str}"
                         }
                     },
@@ -341,7 +342,7 @@ def create_app():
     def build_status_card(reservation: "Reservation", instrument: "Instrument", action: str) -> dict:
         """构建状态卡片，显示审批结果"""
         from datetime import datetime
-        
+
         # 获取预约人信息
         s = get_session()
         try:
@@ -349,12 +350,12 @@ def create_app():
             reserver_name = reserver.name if reserver else "未知用户"
         finally:
             s.close()
-        
+
         # 格式化时间
         start_str = reservation.start_time.strftime("%Y-%m-%d %H:%M")
         end_str = reservation.end_time.strftime("%Y-%m-%d %H:%M")
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
-        
+
         # 根据状态确定显示内容
         if reservation.status == "approved":
             status_text = "✅ 已同意"
@@ -365,7 +366,7 @@ def create_app():
         else:
             status_text = "⏳ 待处理"
             status_color = "orange"
-        
+
         card = {
             "schema": "2.0",
             "config": {"wide_screen_mode": True},
@@ -381,7 +382,7 @@ def create_app():
                         "tag": "div",
                         "text": {
                             "tag": "lark_md",
-                            "content": f"**申请人：** {reserver_name}\n**仪器：**{instrument.name}\n**时段：**{start_str} - {end_str}"
+                            "content": f"**申请人：**{reserver_name}\n**仪器：**{instrument.name if instrument else '未知仪器'}\n**时段：**{start_str} - {end_str}"
                         }
                     },
                     {
@@ -394,7 +395,7 @@ def create_app():
                 ]
             }
         }
-        
+
         return card
 
     class Instrument(Base):
@@ -1735,13 +1736,13 @@ def create_app():
             data = request.get_json()
             if not data:
                 return jsonify({"error": "invalid_request"}), 400
-            
+
             # 飞书卡片/事件回调的 URL 校验：需要原样返回 challenge
             # 兼容不同结构：顶层 challenge 或 event.challenge
             challenge = data.get("challenge") or (data.get("event") or {}).get("challenge")
             if challenge:
                 return jsonify({"challenge": challenge})
-            
+
             # 解析回调数据（兼容新版 card.action.trigger 的 event 包裹，以及旧版直出结构）
             event = data.get("event") or {}
             action_value = (
@@ -1753,26 +1754,26 @@ def create_app():
             update_token = (event.get("token") if isinstance(event, dict) else None) or data.get("token")
             open_message_id = ((event.get("context") or {}).get("open_message_id") if isinstance(event, dict) else None)
             reservation_id = action_value.get("reservation_id")
-            keeper_id = action_value.get("keeper_id") 
+            keeper_id = action_value.get("keeper_id")
             action = action_value.get("action")
-            
+
             if not all([reservation_id, keeper_id, action]):
                 # 按飞书规范返回 200 + toast，避免 200672
                 return jsonify({"toast": {"type": "error", "content": "无效的操作数据"}})
-            
+
             if action not in ("approve", "reject"):
                 return jsonify({"toast": {"type": "error", "content": "无效操作"}})
-            
+
             s = get_session()
             try:
                 res = s.query(Reservation).get(reservation_id)
                 if not res:
                     return jsonify({"error": "reservation_not_found"}), 404
-                
+
                 inst = s.query(Instrument).get(res.instrument_id)
                 if not inst or getattr(inst, "keeper_id", None) != keeper_id:
                     return jsonify({"error": "permission_denied"}), 403
-                
+
                 if res.status != "pending":
                     # 返回当前状态的卡片（需包在 card 字段内，指定 type=raw）
                     return jsonify({
@@ -1781,7 +1782,7 @@ def create_app():
                             "data": build_status_card(res, inst, action)
                         }
                     })
-                
+
                 # 处理审批
                 if action == "approve":
                     if has_conflict(s, res.instrument_id, res.start_time, res.end_time, exclude_id=res.id):
@@ -1792,9 +1793,9 @@ def create_app():
                     res.status = "approved"
                 else:
                     res.status = "rejected"
-                
+
                 s.commit()
-                
+
                 # 通知预约人
                 try:
                     reserver = s.query(User).get(res.user_id)
@@ -1808,7 +1809,7 @@ def create_app():
                         send_feishu_text_to_user(reserver.feishu_user_id, msg)
                 except Exception:
                     pass
-                
+
                 # 构建更新后的卡片
                 card_response = build_status_card(res, inst, action)
                 # 主动调用飞书更新接口，确保原卡片被替换
@@ -1818,7 +1819,7 @@ def create_app():
                 except Exception:
                     pass
                 toast_text = "已同意" if action == "approve" else "已驳回"
-                
+
                 return jsonify({
                     "card": {
                         "type": "raw",
@@ -1826,10 +1827,10 @@ def create_app():
                     },
                     "toast": {"type": "success", "content": toast_text}
                 })
-                
+
             finally:
                 s.close()
-                
+
         except Exception as e:
             print(f"飞书卡片回调处理错误: {e}")
             return jsonify({"error": "internal_error"}), 500
@@ -3162,7 +3163,7 @@ def create_app():
         """跳转飞书登录页，完成后回调到 /oauth/callback（按简化示例方式）。"""
         # 使用配置中的回调地址
         use_redirect = FEISHU_REDIRECT_URI or (
-                    os.getenv("BASE_URL", request.url_root.rstrip("/")) + "/api/auth/feishu/callback")
+                os.getenv("BASE_URL", request.url_root.rstrip("/")) + "/api/auth/feishu/callback")
         auth_url = (
             "https://open.feishu.cn/open-apis/authen/v1/index"
             f"?app_id={FEISHU_APP_ID}&redirect_uri={use_redirect}"
