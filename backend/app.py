@@ -6,9 +6,6 @@ import threading
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-import hmac
-import hashlib
-import base64
 
 # Third-party imports
 import jwt
@@ -17,7 +14,7 @@ import requests
 from flask import Flask, jsonify, request, send_file, send_from_directory, redirect
 from flask_cors import CORS
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Text, DateTime, 
+    create_engine, Column, Integer, String, Text, DateTime,
     ForeignKey, JSON, Boolean, and_, or_, text
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship, scoped_session
@@ -30,7 +27,7 @@ def create_app():
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-    
+
     # Feishu configuration
     FEISHU_APP_ID = os.getenv("FEISHU_APP_ID", "cli_a84d36f557729013")
     FEISHU_APP_SECRET = os.getenv("FEISHU_APP_SECRET", "ZebTrPQlsZKHOA2nJeAv0gjvotAqOiGf")
@@ -38,24 +35,24 @@ def create_app():
         "FEISHU_REDIRECT_URI",
         "http://1.13.176.116:5011/api/auth/feishu/callback"
     )
-    
+
     # JWT configuration
     JWT_SECRET = os.getenv("JWT_SECRET", "fixed_jwt_secret_key_here_32_chars_minimum")
     JWT_ALGORITHM = "HS256"
-    
+
     # Database configuration
     DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///instrument_reservation.db")
     DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "20"))
     DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "30"))
     DB_POOL_RECYCLE = 3600
     DB_POOL_TIMEOUT = 60
-    
+
     # Timezone configuration
     CN_OFFSET = timedelta(hours=8)
-    
+
     # ===================== Flask App Setup =====================
     app = Flask(__name__)
-    
+
     # Session configuration
     app.config.update({
         'SESSION_COOKIE_SECURE': False,  # Set to False to avoid ngrok issues
@@ -64,9 +61,9 @@ def create_app():
         'UPLOAD_FOLDER': UPLOAD_FOLDER,
         'MAX_CONTENT_LENGTH': MAX_CONTENT_LENGTH,
     })
-    
+
     CORS(app, supports_credentials=True)
-    
+
     # ===================== Database Setup =====================
     engine = create_engine(
         DATABASE_URL,
@@ -78,7 +75,7 @@ def create_app():
         echo=os.getenv("SQLALCHEMY_ECHO", "0") == "1",
         connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
     )
-    
+
     Session = scoped_session(sessionmaker(bind=engine, expire_on_commit=False))
     _SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
     Base = declarative_base()
@@ -93,15 +90,14 @@ def create_app():
     FEISHU_TOKEN_URL = f"{FEISHU_API_BASE}/auth/v3/tenant_access_token/internal"
     FEISHU_MESSAGE_URL = f"{FEISHU_API_BASE}/im/v1/messages"
     FEISHU_TIMEOUT = 10
-    FEISHU_CARD_CALLBACK_PATH = "/api/feishu/card_callback"
 
     def get_tenant_access_token() -> str:
         """获取飞书租户访问令牌，带缓存机制"""
         now_ts = int(time.time())
-        if (_tenant_access_token_cache["token"] and 
-            now_ts < _tenant_access_token_cache["expire_at"] - 60):
+        if (_tenant_access_token_cache["token"] and
+                now_ts < _tenant_access_token_cache["expire_at"] - 60):
             return _tenant_access_token_cache["token"]
-        
+
         try:
             response = requests.post(
                 FEISHU_TOKEN_URL,
@@ -109,7 +105,7 @@ def create_app():
                 timeout=FEISHU_TIMEOUT
             )
             response.raise_for_status()
-            
+
             data = response.json()
             if data.get("code") == 0:
                 token = data.get("tenant_access_token")
@@ -123,32 +119,14 @@ def create_app():
             print(f"获取飞书token网络错误: {e}")
         except Exception as e:
             print(f"获取飞书token未知错误: {e}")
-        
-        return None
 
-    def verify_feishu_signature(req) -> bool:
-        """校验飞书回调签名。参考文档: header X-Lark-Signature / X-Lark-Request-Timestamp / X-Lark-Request-Nonce
-        算法: base64( HmacSha256( app_secret, timestamp + nonce + body ) )
-        """
-        try:
-            timestamp = req.headers.get("X-Lark-Request-Timestamp") or req.headers.get("X-Request-Timestamp")
-            nonce = req.headers.get("X-Lark-Request-Nonce") or req.headers.get("X-Request-Nonce")
-            signature = req.headers.get("X-Lark-Signature") or req.headers.get("X-Signature")
-            if not (timestamp and nonce and signature):
-                return False
-            body_bytes = req.get_data() or b""
-            base_string = (str(timestamp) + str(nonce)).encode("utf-8") + body_bytes
-            digest = hmac.new(FEISHU_APP_SECRET.encode("utf-8"), base_string, hashlib.sha256).digest()
-            expected = base64.b64encode(digest).decode("utf-8")
-            return hmac.compare_digest(expected, signature)
-        except Exception:
-            return False
+        return None
 
     def send_feishu_text_to_user(feishu_user_id: str, text: str) -> bool:
         """发送飞书文本消息给用户"""
         if not feishu_user_id or not text:
             return False
-            
+
         access_token = get_tenant_access_token()
         if not access_token:
             print("未获取到飞书access_token")
@@ -172,7 +150,7 @@ def create_app():
                 timeout=FEISHU_TIMEOUT
             )
             response.raise_for_status()
-            
+
             result = response.json()
             if result.get("code") == 0:
                 print("飞书消息发送成功")
@@ -183,7 +161,7 @@ def create_app():
             print(f"飞书消息发送网络错误: {e}")
         except Exception as e:
             print(f"飞书消息发送未知错误: {e}")
-        
+
         return False
 
     def build_action_token(reservation_id: int, keeper_id: int, action: str, minutes_valid: int = 60) -> str:
@@ -207,20 +185,23 @@ def create_app():
             reserver = local_s.query(User).get(reservation.user_id)
         finally:
             local_s.close()
-        
+
         if not keeper or not keeper.feishu_user_id:
             print("保管员不存在或未绑定飞书账号")
             return False
-            
+
         access_token = get_tenant_access_token()
         if not access_token:
             print("未获取到飞书access_token")
             return False
-        
-        # Build approve/reject button tokens
+
+        # Build approve/reject links with signed token
+        base_url = (request.url_root or "").rstrip("/")
         approve_token = build_action_token(reservation.id, keeper.id, "approve")
         reject_token = build_action_token(reservation.id, keeper.id, "reject")
-        
+        approve_url = f"{base_url}/api/feishu/action?token={approve_token}"
+        reject_url = f"{base_url}/api/feishu/action?token={reject_token}"
+
         # Format time strings
         start_str = reservation.start_time.strftime("%Y-%m-%d %H:%M")
         end_str = reservation.end_time.strftime("%Y-%m-%d %H:%M")
@@ -231,36 +212,55 @@ def create_app():
             "schema": "2.0",
             "config": {"wide_screen_mode": True},
             "header": {
-                "title": {"tag": "plain_text", "content": "仪器预约待审核"}
-            },
-            "elements": [
-                {
-                    "tag": "div",
-                    "text": {
-                        "tag": "lark_md",
-                        "content": f"**申请人：**{reserver_name}\n**仪器：**{instrument_name}\n**时段：**{start_str} - {end_str}"
-                    }
-                },
-                {
-                    "tag": "action",
-                    "actions": [
-                        {
-                            "tag": "button",
-                            "text": {"tag": "plain_text", "content": "同意"},
-                            "type": "primary",
-                            "value": {"token": approve_token, "act": "approve"}
-                        },
-                        {
-                            "tag": "button",
-                            "text": {"tag": "plain_text", "content": "驳回"},
-                            "type": "danger",
-                            "value": {"token": reject_token, "act": "reject"}
-                        }
-                    ]
+                "title": {
+                    "tag": "plain_text",
+                    "content": "仪器预约待审核"
                 }
-            ]
+            },
+            "body": {
+                "elements": [
+                    {
+                        "tag": "div",
+                        "text": {
+                            "tag": "lark_md",
+                            "content": f"**申请人：**{reserver_name}\n**仪器：**{instrument_name}\n**时段：**{start_str} - {end_str}"
+                        }
+                    },
+                    {
+                        "tag": "action",
+                        "actions": [
+                            {
+                                "tag": "button",
+                                "text": {
+                                    "tag": "plain_text",
+                                    "content": "同意"
+                                },
+                                "type": "primary",
+                                "value": {
+                                    "reservation_id": reservation.id,
+                                    "keeper_id": keeper.id,
+                                    "action": "approve"
+                                }
+                            },
+                            {
+                                "tag": "button",
+                                "text": {
+                                    "tag": "plain_text",
+                                    "content": "驳回"
+                                },
+                                "type": "default",
+                                "value": {
+                                    "reservation_id": reservation.id,
+                                    "keeper_id": keeper.id,
+                                    "action": "reject"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
         }
-        
+
         try:
             headers = {
                 "Authorization": f"Bearer {access_token}",
@@ -271,7 +271,7 @@ def create_app():
                 "msg_type": "interactive",
                 "content": json.dumps(card)
             }
-            
+
             response = requests.post(
                 f"{FEISHU_MESSAGE_URL}?receive_id_type=user_id",
                 headers=headers,
@@ -279,7 +279,7 @@ def create_app():
                 timeout=FEISHU_TIMEOUT
             )
             response.raise_for_status()
-            
+
             result = response.json()
             if result.get("code") == 0:
                 print("飞书审批卡片发送成功")
@@ -290,8 +290,67 @@ def create_app():
             print(f"飞书审批卡片发送网络错误: {e}")
         except Exception as e:
             print(f"飞书审批卡片发送未知错误: {e}")
-        
+
         return False
+
+    def build_status_card(reservation: "Reservation", instrument: "Instrument", action: str) -> dict:
+        """构建状态卡片，显示审批结果"""
+        from datetime import datetime
+        
+        # 获取预约人信息
+        s = get_session()
+        try:
+            reserver = s.query(User).get(reservation.user_id)
+            reserver_name = reserver.name if reserver else "未知用户"
+        finally:
+            s.close()
+        
+        # 格式化时间
+        start_str = reservation.start_time.strftime("%Y-%m-%d %H:%M")
+        end_str = reservation.end_time.strftime("%Y-%m-%d %H:%M")
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+        
+        # 根据状态确定显示内容
+        if reservation.status == "approved":
+            status_text = "✅ 已同意"
+            status_color = "green"
+        elif reservation.status == "rejected":
+            status_text = "❌ 已驳回"
+            status_color = "red"
+        else:
+            status_text = "⏳ 待处理"
+            status_color = "orange"
+        
+        card = {
+            "schema": "2.0",
+            "config": {"wide_screen_mode": True},
+            "header": {
+                "title": {
+                    "tag": "plain_text",
+                    "content": "仪器预约审核结果"
+                }
+            },
+            "body": {
+                "elements": [
+                    {
+                        "tag": "div",
+                        "text": {
+                            "tag": "lark_md",
+                            "content": f"**申请人：**{reserver_name}\n**仪器：**{instrument.name if instrument else '未知仪器'}\n**时段：**{start_str} - {end_str}"
+                        }
+                    },
+                    {
+                        "tag": "div",
+                        "text": {
+                            "tag": "lark_md",
+                            "content": f"**状态：** {status_text}\n**处理时间：** {current_time}"
+                        }
+                    }
+                ]
+            }
+        }
+        
+        return card
 
     class Instrument(Base):
         __tablename__ = "instruments"
@@ -344,7 +403,7 @@ def create_app():
         role = Column(String(32), nullable=False, default="user")  # super_admin/admin/user
         is_keeper = Column(Boolean, default=False)  # 是否为保管员
         allowed_windows = Column(JSON, default=list)  # list of {weekday: 0-6, start:"HH:MM", end:"HH:MM"}
-        
+
         # 权限控制字段
         is_active = Column(String(8), default="active")  # active/suspended
         created_by = Column(Integer, ForeignKey("users.id"))  # 创建者ID
@@ -411,7 +470,6 @@ def create_app():
         created_at = Column(DateTime, default=now_cn)
 
         # 轻关系（无需反向）
-        
 
     Base.metadata.create_all(engine)
 
@@ -609,20 +667,24 @@ def create_app():
                 conn.execute(text("ALTER TABLE maintenance_records ADD COLUMN maintenance_end DATETIME"))
             # 其他字段
             if "maintenance_type" not in cols:
-                conn.execute(text("ALTER TABLE maintenance_records ADD COLUMN maintenance_type VARCHAR(64) DEFAULT 'general'"))
+                conn.execute(
+                    text("ALTER TABLE maintenance_records ADD COLUMN maintenance_type VARCHAR(64) DEFAULT 'general'"))
             if "description" not in cols:
                 conn.execute(text("ALTER TABLE maintenance_records ADD COLUMN description TEXT"))
             if "status" not in cols:
                 conn.execute(text("ALTER TABLE maintenance_records ADD COLUMN status VARCHAR(32) DEFAULT 'done'"))
             if "created_at" not in cols:
-                conn.execute(text("ALTER TABLE maintenance_records ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP"))
+                conn.execute(
+                    text("ALTER TABLE maintenance_records ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP"))
             # 尝试互相回填（尽力而为）
             try:
-                conn.execute(text("UPDATE maintenance_records SET created_by = user_id WHERE created_by IS NULL AND user_id IS NOT NULL"))
+                conn.execute(text(
+                    "UPDATE maintenance_records SET created_by = user_id WHERE created_by IS NULL AND user_id IS NOT NULL"))
             except Exception:
                 pass
             try:
-                conn.execute(text("UPDATE maintenance_records SET user_id = created_by WHERE user_id IS NULL AND created_by IS NOT NULL"))
+                conn.execute(text(
+                    "UPDATE maintenance_records SET user_id = created_by WHERE user_id IS NULL AND created_by IS NOT NULL"))
             except Exception:
                 pass
         except Exception:
@@ -748,13 +810,13 @@ def create_app():
             # 清除用户缓存
             if user_id in user_cache:
                 del user_cache[user_id]
-            
+
             # 清除该用户相关的token缓存
             tokens_to_remove = []
             for token, (cached_user, timestamp) in token_cache.items():
                 if hasattr(cached_user, 'id') and cached_user.id == user_id:
                     tokens_to_remove.append(token)
-            
+
             for token in tokens_to_remove:
                 del token_cache[token]
 
@@ -782,12 +844,12 @@ def create_app():
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
-            
+
             # 先检查token缓存
             cached_user = get_cached_token(token)
             if cached_user:
                 return cached_user
-            
+
             try:
                 payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
                 user_id = payload.get("user_id")
@@ -823,7 +885,7 @@ def create_app():
             if token:
                 cache_token(token, cached_user)
             return cached_user
-            
+
         # 从数据库查询
         s = get_session()
         try:
@@ -836,7 +898,7 @@ def create_app():
                 return user
         finally:
             s.close()
-        
+
         return None
 
     def get_role():
@@ -921,15 +983,15 @@ def create_app():
         page = int(request.args.get("page", 1))
         page_size = int(request.args.get("page_size", 10))
         manageable = request.args.get("manageable")
-        
+
         if keyword:
             like = f"%{keyword}%"
             q = q.filter(or_(Instrument.name.like(like), Instrument.brand.like(like), Instrument.model.like(like)))
         if category:
             q = q.filter(Instrument.category == category)
-        
+
         # 若指定manageable=true，则仅返回当前用户可以管理的仪器（管理员不受限）
-        if (manageable in ["1", "true", "True"]) :
+        if (manageable in ["1", "true", "True"]):
             user = get_current_user()
             if user.role not in ["admin", "super_admin"] and getattr(user, 'is_keeper', False):
                 q = q.filter(Instrument.keeper_id == user.id)
@@ -940,11 +1002,11 @@ def create_app():
             total = q.count()
             offset = (page - 1) * page_size
             items = q.order_by(Instrument.id.desc()).offset(offset).limit(page_size).all()
-            
+
             total_pages = (total + page_size - 1) // page_size
             has_prev = page > 1
             has_next = page < total_pages
-            
+
             return jsonify({
                 "items": [serialize_instrument(i) for i in items],
                 "pagination": {
@@ -977,13 +1039,13 @@ def create_app():
             return guard
         s = get_session()
         data = request.json or {}
-        
+
         # 检查用户权限，只有管理员可以设置预约刻度
         user = get_current_user()
         if "slot_minutes" in data and user.role not in ["admin", "super_admin"]:
             # 普通用户不能设置预约刻度，使用默认值
             data["slot_minutes"] = 15
-        
+
         # normalize date fields (accept 'YYYY-MM-DD')
         for k in ["production_date", "start_use_date"]:
             v = data.get(k)
@@ -1021,20 +1083,20 @@ def create_app():
         inst = s.query(Instrument).get(instrument_id)
         if not inst:
             return jsonify({"error": "not_found"}), 404
-        
+
         # 检查权限：超级管理员、管理员、经理或仪器保管人
         if user.role not in ["super_admin", "admin"] and inst.keeper_id != user.id:
             return jsonify({"error": "permission_denied"}), 403
-        
+
         data = request.json or {}
-        
+
         # 只有管理员可以修改预约刻度
         if "slot_minutes" in data and user.role not in ["super_admin", "admin"]:
             data.pop("slot_minutes", None)
-        
+
         # 只有管理员可以修改管理信息
-        admin_only_fields = ["vendor_company", "price", "production_date", "start_use_date", 
-                           "warranty_years", "warranty_company", "admin_notes"]
+        admin_only_fields = ["vendor_company", "price", "production_date", "start_use_date",
+                             "warranty_years", "warranty_company", "admin_notes"]
         if user.role not in ["super_admin", "admin"]:
             for field in admin_only_fields:
                 data.pop(field, None)
@@ -1042,7 +1104,7 @@ def create_app():
         # 非管理员禁止在通用更新接口中修改 keeper_id（需走专门接口）
         if user.role not in ["super_admin", "admin"] and "keeper_id" in data:
             data.pop("keeper_id", None)
-        
+
         for k in ["production_date", "start_use_date"]:
             v = data.get(k)
             if isinstance(v, str) and v:
@@ -1086,7 +1148,8 @@ def create_app():
         except Exception:
             pass
         try:
-            s.query(MaintenanceRecord).filter(MaintenanceRecord.instrument_id == instrument_id).delete(synchronize_session=False)
+            s.query(MaintenanceRecord).filter(MaintenanceRecord.instrument_id == instrument_id).delete(
+                synchronize_session=False)
         except Exception:
             pass
         # 最后删除仪器本身
@@ -1101,33 +1164,33 @@ def create_app():
         guard = require_auth()
         if guard:
             return guard
-        
+
         if 'file' not in request.files:
             return jsonify({"error": "no_file"}), 400
-        
+
         file = request.files['file']
         if file.filename == '':
             return jsonify({"error": "no_file_selected"}), 400
-        
+
         if file and allowed_file(file.filename):
             # 确保上传文件夹存在
             upload_folder = ensure_upload_folder()
-            
+
             # 生成唯一文件名
             filename = secure_filename(file.filename)
             file_extension = filename.rsplit('.', 1)[1].lower()
             unique_filename = f"{uuid.uuid4()}.{file_extension}"
-            
+
             # 保存文件
             file_path = os.path.join(upload_folder, unique_filename)
             file.save(file_path)
-            
+
             # 返回文件URL
             base_url = request.host_url.rstrip("/")
             file_url = f"{base_url}/uploads/{unique_filename}"
-            
+
             return jsonify({"url": file_url, "filename": unique_filename})
-        
+
         return jsonify({"error": "invalid_file_type"}), 400
 
     @app.get("/uploads/<filename>")
@@ -1161,9 +1224,9 @@ def create_app():
             from io import BytesIO
         except Exception:
             return jsonify({"error": "pandas_required"}), 500
-        
+
         s = get_session()
-        
+
         # 支持通过URL参数传递token（用于飞书环境）
         token_from_url = request.args.get('token')
         if token_from_url:
@@ -1185,13 +1248,13 @@ def create_app():
             user = get_current_user()
         from sqlalchemy.orm import joinedload
         q = s.query(Reservation).options(joinedload(Reservation.user), joinedload(Reservation.instrument))
-        
+
         # 应用筛选条件
         instrument_id = request.args.get("instrument_id")
         status = request.args.get("status")
         start_date = request.args.get("start_date")
         end_date = request.args.get("end_date")
-        
+
         if instrument_id:
             q = q.filter(Reservation.instrument_id == int(instrument_id))
         if status:
@@ -1202,14 +1265,14 @@ def create_app():
         if end_date:
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
             q = q.filter(Reservation.start_time < end_dt)
-        
+
         # 权限控制：非管理员只能看到自己的预约
         if user.role not in ["admin", "super_admin"] and hasattr(user, 'id') and user.id and user.id > 0:
             q = q.filter(Reservation.user_id == user.id)
-        
+
         # 获取所有匹配的记录（不分页）
         items = q.order_by(Reservation.created_at.desc()).all()
-        
+
         # 准备导出数据
         export_data = []
         for r in items:
@@ -1224,16 +1287,16 @@ def create_app():
                 "预约人电话": r.user.phone if r.user and r.user.phone else "",
                 "仪器位置": r.instrument.location if r.instrument and r.instrument.location else "",
             })
-        
+
         df = pd.DataFrame(export_data)
         bio = BytesIO()
         df.to_excel(bio, index=False, engine='openpyxl')
         bio.seek(0)
-        
+
         # 生成文件名
         now = datetime.now()
         filename = f"预约记录_{now.strftime('%Y%m%d_%H%M%S')}.xlsx"
-        
+
         return send_file(bio, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                          as_attachment=True, download_name=filename)
 
@@ -1328,7 +1391,7 @@ def create_app():
         end_date = request.args.get("end_date")
         page = int(request.args.get("page", 1))
         page_size = int(request.args.get("page_size", 10))
-        
+
         if instrument_id:
             q = q.filter(Reservation.instrument_id == int(instrument_id))
         if status:
@@ -1358,22 +1421,24 @@ def create_app():
                 q = q.filter(text("1=0"))
             else:
                 if manage_scope in ["1", "true", "True"] and getattr(user, 'is_keeper', False):
-                    q = q.join(Instrument, Instrument.id == Reservation.instrument_id).filter(Instrument.keeper_id == user.id)
+                    q = q.join(Instrument, Instrument.id == Reservation.instrument_id).filter(
+                        Instrument.keeper_id == user.id)
                 else:
                     q = q.filter(Reservation.user_id == user.id)
-        
+
         # 检查是否请求分页数据
         if page > 1 or page_size != 10 or request.args.get("page") is not None:
             # 分页模式，使用 joinedload 优化查询
             from sqlalchemy.orm import joinedload
             total = q.count()
             offset = (page - 1) * page_size
-            items = q.options(joinedload(Reservation.user), joinedload(Reservation.instrument)).order_by(Reservation.created_at.desc()).offset(offset).limit(page_size).all()
-            
+            items = q.options(joinedload(Reservation.user), joinedload(Reservation.instrument)).order_by(
+                Reservation.created_at.desc()).offset(offset).limit(page_size).all()
+
             total_pages = (total + page_size - 1) // page_size
             has_prev = page > 1
             has_next = page < total_pages
-            
+
             return jsonify({
                 "items": [serialize_reservation(r) for r in items],
                 "pagination": {
@@ -1388,14 +1453,16 @@ def create_app():
         else:
             # 兼容模式：返回所有数据，使用 joinedload 优化查询
             from sqlalchemy.orm import joinedload
-            items = q.options(joinedload(Reservation.user), joinedload(Reservation.instrument)).order_by(Reservation.created_at.desc()).all()
+            items = q.options(joinedload(Reservation.user), joinedload(Reservation.instrument)).order_by(
+                Reservation.created_at.desc()).all()
             return jsonify([serialize_reservation(r) for r in items])
 
     @app.get("/api/instruments/<int:instrument_id>/reservations")
     def list_reservations_for_instrument(instrument_id: int):
         s = get_session()
         from sqlalchemy.orm import joinedload
-        q = s.query(Reservation).options(joinedload(Reservation.user), joinedload(Reservation.instrument)).filter(Reservation.instrument_id == instrument_id)
+        q = s.query(Reservation).options(joinedload(Reservation.user), joinedload(Reservation.instrument)).filter(
+            Reservation.instrument_id == instrument_id)
         items = q.order_by(Reservation.start_time.asc()).all()
         return jsonify([serialize_reservation(r) for r in items])
 
@@ -1404,28 +1471,28 @@ def create_app():
         """获取仪器统计信息，包括预约率和下一个使用者"""
         s = get_session()
         user = get_current_user()
-        
+
         # 获取日期参数
         start_date = request.args.get("start_date")
         end_date = request.args.get("end_date")
-        
+
         # 查询该仪器的所有预约（不限制用户权限，用于统计）
         q = s.query(Reservation).filter(Reservation.instrument_id == instrument_id)
-        
+
         if start_date:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             q = q.filter(Reservation.start_time >= start_dt)
         if end_date:
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
             q = q.filter(Reservation.start_time < end_dt)
-        
+
         reservations = q.order_by(Reservation.start_time.asc()).all()
-        
+
         # 获取仪器信息
         instrument = s.query(Instrument).get(instrument_id)
         if not instrument:
             return jsonify({"error": "instrument_not_found"}), 404
-        
+
         # 计算工作时间
         work_start_hour = 8
         work_start_minute = 0
@@ -1439,12 +1506,12 @@ def create_app():
             time_parts = instrument.booking_end_time.split(':')
             work_end_hour = int(time_parts[0])
             work_end_minute = int(time_parts[1]) if len(time_parts) > 1 else 0
-        
+
         slot_minutes = instrument.slot_minutes or 15
         # 计算总工作分钟数，然后除以时间段长度
         total_work_minutes = (work_end_hour * 60 + work_end_minute) - (work_start_hour * 60 + work_start_minute)
         total_slots = total_work_minutes // slot_minutes
-        
+
         # 计算已预约的时间段（只计算approved状态）
         approved_reservations = [r for r in reservations if r.status == 'approved']
         booked_slots = 0
@@ -1453,7 +1520,7 @@ def create_app():
             duration_minutes = (reservation.end_time - reservation.start_time).total_seconds() / 60
             slots_used = int(duration_minutes // slot_minutes)
             booked_slots += slots_used
-        
+
         # 计算预约率
         booking_rate = round((booked_slots / total_slots) * 100) if total_slots > 0 else 0
 
@@ -1478,7 +1545,7 @@ def create_app():
                 "start_time": next_res_obj.start_time.isoformat() if next_res_obj.start_time else None,
                 "end_time": next_res_obj.end_time.isoformat() if next_res_obj.end_time else None,
             }
-        
+
         return jsonify({
             "booking_rate": booking_rate,
             "next_user": next_user,
@@ -1571,7 +1638,8 @@ def create_app():
         res.status = "approved"
         s.commit()
         from sqlalchemy.orm import joinedload
-        res = s.query(Reservation).options(joinedload(Reservation.user), joinedload(Reservation.instrument)).get(reservation_id)
+        res = s.query(Reservation).options(joinedload(Reservation.user), joinedload(Reservation.instrument)).get(
+            reservation_id)
         # 通知预约人
         try:
             reserver = s.query(User).get(res.user_id)
@@ -1579,7 +1647,8 @@ def create_app():
             if reserver and reserver.feishu_user_id:
                 start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
                 end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
-                send_feishu_text_to_user(reserver.feishu_user_id, f"您的仪器预约已通过：{inst.name if inst else ''}，{start_str}-{end_str}")
+                send_feishu_text_to_user(reserver.feishu_user_id,
+                                         f"您的仪器预约已通过：{inst.name if inst else ''}，{start_str}-{end_str}")
         except Exception:
             pass
         return jsonify(serialize_reservation(res))
@@ -1599,7 +1668,8 @@ def create_app():
         res.status = "rejected"
         s.commit()
         from sqlalchemy.orm import joinedload
-        res = s.query(Reservation).options(joinedload(Reservation.user), joinedload(Reservation.instrument)).get(reservation_id)
+        res = s.query(Reservation).options(joinedload(Reservation.user), joinedload(Reservation.instrument)).get(
+            reservation_id)
         # 通知预约人
         try:
             reserver = s.query(User).get(res.user_id)
@@ -1607,70 +1677,123 @@ def create_app():
             if reserver and reserver.feishu_user_id:
                 start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
                 end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
-                send_feishu_text_to_user(reserver.feishu_user_id, f"您的仪器预约已被驳回：{inst.name if inst else ''}，{start_str}-{end_str}")
+                send_feishu_text_to_user(reserver.feishu_user_id,
+                                         f"您的仪器预约已被驳回：{inst.name if inst else ''}，{start_str}-{end_str}")
         except Exception:
             pass
         return jsonify(serialize_reservation(res))
+
+    @app.post("/api/feishu/card/callback")
+    def feishu_card_callback():
+        """处理飞书卡片按钮交互回调"""
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "invalid_request"}), 400
+            
+            # 解析回调数据
+            action_value = data.get("action", {}).get("value", {})
+            reservation_id = action_value.get("reservation_id")
+            keeper_id = action_value.get("keeper_id") 
+            action = action_value.get("action")
+            
+            if not all([reservation_id, keeper_id, action]):
+                return jsonify({"error": "invalid_action_data"}), 400
+            
+            if action not in ("approve", "reject"):
+                return jsonify({"error": "invalid_action"}), 400
+            
+            s = get_session()
+            try:
+                res = s.query(Reservation).get(reservation_id)
+                if not res:
+                    return jsonify({"error": "reservation_not_found"}), 404
+                
+                inst = s.query(Instrument).get(res.instrument_id)
+                if not inst or getattr(inst, "keeper_id", None) != keeper_id:
+                    return jsonify({"error": "permission_denied"}), 403
+                
+                if res.status != "pending":
+                    # 返回当前状态的卡片
+                    return jsonify(build_status_card(res, inst, action))
+                
+                # 处理审批
+                if action == "approve":
+                    if has_conflict(s, res.instrument_id, res.start_time, res.end_time, exclude_id=res.id):
+                        return jsonify({
+                            "error": "time_conflict",
+                            "toast": {"text": "时间冲突，无法通过"}
+                        }), 409
+                    res.status = "approved"
+                else:
+                    res.status = "rejected"
+                
+                s.commit()
+                
+                # 通知预约人
+                try:
+                    reserver = s.query(User).get(res.user_id)
+                    if reserver and reserver.feishu_user_id:
+                        start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
+                        end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                        msg = (
+                            f"您的仪器预约已通过：{inst.name}，{start_str}-{end_str}" if res.status == "approved"
+                            else f"您的仪器预约已被驳回：{inst.name}，{start_str}-{end_str}"
+                        )
+                        send_feishu_text_to_user(reserver.feishu_user_id, msg)
+                except Exception:
+                    pass
+                
+                # 返回更新后的卡片和toast提示
+                card_response = build_status_card(res, inst, action)
+                toast_text = "已同意" if action == "approve" else "已驳回"
+                
+                return jsonify({
+                    "card": card_response,
+                    "toast": {
+                        "text": toast_text
+                    }
+                })
+                
+            finally:
+                s.close()
+                
+        except Exception as e:
+            print(f"飞书卡片回调处理错误: {e}")
+            return jsonify({"error": "internal_error"}), 500
 
     @app.get("/api/feishu/action")
     def feishu_action_callback():
         """处理飞书卡片中同意/驳回按钮的签名链接。
         链接中包含短期有效的签名token，不依赖登录状态。
-        在飞书内点击后会打开一个简单的结果页面，便于操作者确认。"""
+        """
         token = request.args.get("token")
-        def render_html(message: str):
-            # 简单的确认结果页面，适配飞书内置浏览器
-            return (
-                f"""
-                <html>
-                  <head>
-                    <meta charset='utf-8'/>
-                    <meta name='viewport' content='width=device-width, initial-scale=1'/>
-                    <title>操作结果</title>
-                    <style>
-                      body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; padding: 32px; color: #1f2328; }}
-                      .card {{ max-width: 520px; margin: 0 auto; border: 1px solid #e1e4e8; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }}
-                      .title {{ font-size: 18px; font-weight: 600; margin-bottom: 8px; }}
-                      .tip {{ color: #57606a; font-size: 14px; margin-top: 12px; }}
-                      .btn {{ display: inline-block; margin-top: 16px; padding: 10px 16px; background: #2da44e; color: #fff; text-decoration: none; border-radius: 6px; }}
-                    </style>
-                  </head>
-                  <body>
-                    <div class='card'>
-                      <div class='title'>仪器预约审批</div>
-                      <div>{message}</div>
-                      <div class='tip'>可直接关闭此页面返回飞书。</div>
-                    </div>
-                  </body>
-                </html>
-                """
-            )
         if not token:
-            return render_html("链接无效或缺少参数。请返回飞书重试。"), 400
+            return "invalid token", 400
         try:
             data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         except Exception:
-            return render_html("链接已失效或不正确。请返回飞书重试。"), 400
+            return "invalid token", 400
         if data.get("typ") != "feishu_action_v1":
-            return render_html("链接无效。"), 400
+            return "invalid token", 400
         reservation_id = int(data.get("rid") or 0)
         keeper_id = int(data.get("kid") or 0)
         action = data.get("act")
         if reservation_id <= 0 or keeper_id <= 0 or action not in ("approve", "reject"):
-            return render_html("链接参数不正确。"), 400
+            return "invalid token", 400
         s = get_session()
         try:
             res = s.query(Reservation).get(reservation_id)
             if not res:
-                return render_html("预约不存在或已被删除。"), 404
+                return "not found", 404
             inst = s.query(Instrument).get(res.instrument_id)
             if not inst or getattr(inst, "keeper_id", None) != keeper_id:
-                return render_html("无权限执行此操作。"), 403
+                return "permission denied", 403
             if res.status != "pending":
-                return render_html("该预约已处理过，无需重复操作。")
+                return "already processed", 200
             if action == "approve":
                 if has_conflict(s, res.instrument_id, res.start_time, res.end_time, exclude_id=res.id):
-                    return render_html("时间冲突：该时段已被占用。"), 409
+                    return "time conflict", 409
                 res.status = "approved"
             else:
                 res.status = "rejected"
@@ -1688,138 +1811,12 @@ def create_app():
                     send_feishu_text_to_user(reserver.feishu_user_id, msg)
             except Exception:
                 pass
-            # 给保管员也发一条确认消息，确保操作者有明确反馈
-            try:
-                keeper = s.query(User).get(keeper_id)
-                if keeper and keeper.feishu_user_id:
-                    start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
-                    end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
-                    keeper_msg = (
-                        f"已同意预约：{inst.name}，{start_str}-{end_str}。已通知申请人。" if res.status == "approved"
-                        else f"已驳回预约：{inst.name}，{start_str}-{end_str}。已通知申请人。"
-                    )
-                    send_feishu_text_to_user(keeper.feishu_user_id, keeper_msg)
-            except Exception:
-                pass
-            # 简单返回HTML以便在飞书内显示
-            status_text = "已同意" if res.status == "approved" else "已驳回"
-            return render_html(f"操作成功：{status_text}。")
-        finally:
-            s.close()
-
-    @app.post(FEISHU_CARD_CALLBACK_PATH)
-    def feishu_card_callback():
-        """飞书互动卡片回调：按钮点击后由飞书服务器调用。
-        要求在飞书开放平台配置回调URL，并启用签名校验。
-        """
-        # 处理 URL 验证 challenge
-        data = request.get_json(silent=True) or {}
-        if data.get("type") == "url_verification":
-            # 官方文档：需回 echo 字段
-            return jsonify({"challenge": data.get("challenge")})
-
-        # 校验签名
-        if not verify_feishu_signature(request):
-            return jsonify({"code": 1, "msg": "invalid signature"}), 403
-
-        event = data.get("event", {})
-        action = event.get("action", {})
-        action_value = action.get("value", {})
-        token = action_value.get("token")
-        act = action_value.get("act")
-
-        if not token:
-            return jsonify({"code": 1, "msg": "missing token"}), 400
-        try:
-            jwt_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        except Exception:
-            # 更新卡片为失败状态
+            # 返回JSON响应，包含操作结果
             return jsonify({
-                "code": 0,
-                "msg": "ok",
-                "card": {
-                    "elements": [{"tag": "div", "text": {"tag": "lark_md", "content": "链接已失效，请重新操作。"}}]
-                }
+                "success": True,
+                "message": f"操作成功：{'已同意' if res.status == 'approved' else '已驳回'}",
+                "status": res.status
             })
-
-        if jwt_data.get("typ") != "feishu_action_v1":
-            return jsonify({"code": 1, "msg": "invalid token"}), 400
-
-        rid = int(jwt_data.get("rid") or 0)
-        kid = int(jwt_data.get("kid") or 0)
-        act = act or jwt_data.get("act")
-        if rid <= 0 or kid <= 0 or act not in ("approve", "reject"):
-            return jsonify({"code": 1, "msg": "invalid params"}), 400
-
-        s = get_session()
-        try:
-            res = s.query(Reservation).get(rid)
-            if not res:
-                return jsonify({"code": 0, "msg": "ok", "card": {"elements": [{"tag": "div", "text": {"tag": "lark_md", "content": "预约不存在。"}}]}})
-            inst = s.query(Instrument).get(res.instrument_id)
-            if not inst or getattr(inst, "keeper_id", None) != kid:
-                return jsonify({"code": 0, "msg": "ok", "card": {"elements": [{"tag": "div", "text": {"tag": "lark_md", "content": "无权限执行此操作。"}}]}})
-
-            # 已处理
-            if res.status != "pending":
-                start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
-                end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
-                status_text = "已同意" if res.status == "approved" else ("已驳回" if res.status == "rejected" else res.status)
-                return jsonify({
-                    "code": 0,
-                    "msg": "ok",
-                    "card": {
-                        "elements": [
-                            {"tag": "div", "text": {"tag": "lark_md", "content": f"该预约已处理过（{status_text}）。\n{inst.name if inst else ''} {start_str}-{end_str}"}}
-                        ]
-                    }
-                })
-
-            if act == "approve":
-                if has_conflict(s, res.instrument_id, res.start_time, res.end_time, exclude_id=res.id):
-                    return jsonify({
-                        "code": 0,
-                        "msg": "ok",
-                        "card": {"elements": [{"tag": "div", "text": {"tag": "lark_md", "content": "时间冲突：该时段已被占用。"}}]}
-                    })
-                res.status = "approved"
-            else:
-                res.status = "rejected"
-            s.commit()
-
-            # 通知双方
-            try:
-                reserver = s.query(User).get(res.user_id)
-                if reserver and reserver.feishu_user_id:
-                    start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
-                    end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
-                    msg = (
-                        f"您的仪器预约已通过：{inst.name}，{start_str}-{end_str}" if res.status == "approved" else f"您的仪器预约已被驳回：{inst.name}，{start_str}-{end_str}"
-                    )
-                    send_feishu_text_to_user(reserver.feishu_user_id, msg)
-                keeper = s.query(User).get(kid)
-                if keeper and keeper.feishu_user_id:
-                    start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
-                    end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
-                    keeper_msg = (
-                        f"已同意预约：{inst.name}，{start_str}-{end_str}。已通知申请人。" if res.status == "approved" else f"已驳回预约：{inst.name}，{start_str}-{end_str}。已通知申请人。"
-                    )
-                    send_feishu_text_to_user(keeper.feishu_user_id, keeper_msg)
-            except Exception:
-                pass
-
-            # 返回更新后的卡片（显示操作结果，隐藏按钮）
-            start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
-            end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
-            status_text = "已同意" if res.status == "approved" else "已驳回"
-            updated_card = {
-                "elements": [
-                    {"tag": "div", "text": {"tag": "lark_md", "content": f"{inst.name if inst else ''} {start_str}-{end_str}"}},
-                    {"tag": "hr"},
-                    {"tag": "div", "text": {"tag": "lark_md", "content": f"操作成功：{status_text}。"}}
-                ]
-            }
-            return jsonify({"code": 0, "msg": "ok", "card": updated_card})
         finally:
             s.close()
 
@@ -2008,7 +2005,8 @@ def create_app():
             "created_by": m.created_by,
             "user_id": m.user_id,
             "maintenance_date": iso(m.maintenance_date) if hasattr(m, 'maintenance_date') else None,
-            "maintenance_start": iso(getattr(m, 'maintenance_start', None)) if hasattr(m, 'maintenance_start') else None,
+            "maintenance_start": iso(getattr(m, 'maintenance_start', None)) if hasattr(m,
+                                                                                       'maintenance_start') else None,
             "maintenance_end": iso(getattr(m, 'maintenance_end', None)) if hasattr(m, 'maintenance_end') else None,
             "maintenance_type": m.maintenance_type,
             "description": m.description,
@@ -2062,10 +2060,10 @@ def create_app():
                 return
             # 若存在任一未完成维护记录，则暂停预约并标记维护
             has_open = (
-                s.query(MaintenanceRecord)
-                .filter(MaintenanceRecord.instrument_id == instrument_id, MaintenanceRecord.status != "done")
-                .first()
-                is not None
+                    s.query(MaintenanceRecord)
+                    .filter(MaintenanceRecord.instrument_id == instrument_id, MaintenanceRecord.status != "done")
+                    .first()
+                    is not None
             )
             if has_open:
                 # 维护期：暂停预约并标记状态为 maintenance
@@ -2092,7 +2090,7 @@ def create_app():
         guard = require_admin_or_super_admin()
         if guard:
             return guard
-        
+
         s = get_session()
         try:
             instruments = s.query(Instrument).all()
@@ -2198,10 +2196,10 @@ def create_app():
         from urllib.parse import quote
         state = quote(next_url, safe="") if next_url else ""
         auth_url = (
-            f"https://open.feishu.cn/open-apis/authen/v1/index"
-            f"?app_id={FEISHU_APP_ID}"
-            f"&redirect_uri={FEISHU_REDIRECT_URI}"
-            + (f"&state={state}" if state else "")
+                f"https://open.feishu.cn/open-apis/authen/v1/index"
+                f"?app_id={FEISHU_APP_ID}"
+                f"&redirect_uri={FEISHU_REDIRECT_URI}"
+                + (f"&state={state}" if state else "")
         )
         if do_redirect:
             return redirect(auth_url)
@@ -2221,9 +2219,11 @@ def create_app():
             app_token_payload = {"app_id": FEISHU_APP_ID, "app_secret": FEISHU_APP_SECRET}
             app_token_resp = requests.post(app_token_url, json=app_token_payload, timeout=10)
             app_token_json = app_token_resp.json()
-            app_access_token = app_token_json.get("app_access_token") or (app_token_json.get("data", {}) or {}).get("app_access_token")
+            app_access_token = app_token_json.get("app_access_token") or (app_token_json.get("data", {}) or {}).get(
+                "app_access_token")
             if app_token_resp.status_code != 200 or not app_access_token:
-                return jsonify({"error": "app_token_error", "status": app_token_resp.status_code, "details": app_token_json}), 400
+                return jsonify(
+                    {"error": "app_token_error", "status": app_token_resp.status_code, "details": app_token_json}), 400
 
             # 2) 使用 app_access_token 作为 Bearer，交换用户 access_token
             user_token_url = "https://open.feishu.cn/open-apis/authen/v1/access_token"
@@ -2236,7 +2236,8 @@ def create_app():
             token_result = resp.json()
             if resp.status_code != 200:
                 return jsonify({"error": "token_http_error", "status": resp.status_code, "details": token_result}), 400
-            user_access_token = (token_result or {}).get("data", {}).get("access_token") or token_result.get("access_token")
+            user_access_token = (token_result or {}).get("data", {}).get("access_token") or token_result.get(
+                "access_token")
             if not user_access_token:
                 return jsonify({"error": "token_error", "details": token_result}), 400
 
@@ -2258,9 +2259,9 @@ def create_app():
             email = u_data.get("email") or (u_data.get("user") or {}).get("email")
             # 优先从 user_info 获取手机号（若有）
             phone = (
-                u_data.get("mobile")
-                or (u_data.get("user") or {}).get("mobile")
-                or (u_data.get("mobile_visible") if isinstance(u_data.get("mobile_visible"), str) else None)
+                    u_data.get("mobile")
+                    or (u_data.get("user") or {}).get("mobile")
+                    or (u_data.get("mobile_visible") if isinstance(u_data.get("mobile_visible"), str) else None)
             )
 
             # 获取用户详细信息（包括手机号）
@@ -2288,7 +2289,8 @@ def create_app():
                 if not user:
                     # 角色规则：默认 user；若姓名为黄敏青，则设为 super_admin
                     role_val = "super_admin" if (name == "黄敏青") else "user"
-                    user = User(name=name, feishu_user_id=feishu_user_id, avatar_url=avatar_url, email=email, phone=phone, role=role_val)
+                    user = User(name=name, feishu_user_id=feishu_user_id, avatar_url=avatar_url, email=email,
+                                phone=phone, role=role_val)
                     s.add(user)
                     s.commit()
                 else:
@@ -2310,11 +2312,11 @@ def create_app():
                 # 5) 签发JWT (延长有效期到30天)
                 payload = {"user_id": user.id, "exp": datetime.utcnow() + timedelta(days=30)}
                 jwt_token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-                
+
                 # 缓存用户信息
                 cache_user(user.id, user)
                 cache_token(jwt_token, user)
-                
+
             finally:
                 s.close()
 
@@ -2377,7 +2379,7 @@ def create_app():
         s = get_session()
         data = request.json or {}
         current_user = get_current_user()
-        
+
         # 只有超级管理员可以创建管理员
         if data.get("role") in ["admin", "super_admin"] and current_user.role != "super_admin":
             return jsonify({"error": "insufficient_permission"}), 403
@@ -2408,7 +2410,7 @@ def create_app():
 
         user.role = new_role
         s.commit()
-        
+
         # 清除用户缓存，强制下次登录时重新获取最新信息
         clear_user_cache(user_id)
 
@@ -2446,11 +2448,11 @@ def create_app():
             setattr(u, k, v)
 
         s.commit()
-        
+
         # 如果修改了角色，清除用户缓存
         if "role" in data:
             clear_user_cache(user_id)
-        
+
         return jsonify(serialize_user(u))
 
     @app.put("/api/users/<int:user_id>/status")
@@ -2523,7 +2525,7 @@ def create_app():
 
         data = request.json or {}
         keeper_id = data.get("keeper_id")
-        
+
         if keeper_id:
             keeper = s.query(User).get(keeper_id)
             if not keeper:
@@ -2573,7 +2575,7 @@ def create_app():
             return jsonify({"error": "permission_denied"}), 403
 
         data = request.json or {}
-        
+
         if "booking_enabled" in data:
             instrument.booking_enabled = data["booking_enabled"]
         if "booking_start_time" in data:
@@ -2755,27 +2757,39 @@ def create_app():
             conds = []
             # 命中维护开始时间
             if sd and ed_next:
-                conds.append(and_(MaintenanceRecord.maintenance_start != None, MaintenanceRecord.maintenance_start >= sd, MaintenanceRecord.maintenance_start < ed_next))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_start != None, MaintenanceRecord.maintenance_start >= sd,
+                         MaintenanceRecord.maintenance_start < ed_next))
             elif sd:
-                conds.append(and_(MaintenanceRecord.maintenance_start != None, MaintenanceRecord.maintenance_start >= sd))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_start != None, MaintenanceRecord.maintenance_start >= sd))
             elif ed_next:
-                conds.append(and_(MaintenanceRecord.maintenance_start != None, MaintenanceRecord.maintenance_start < ed_next))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_start != None, MaintenanceRecord.maintenance_start < ed_next))
 
             # 命中维护结束时间
             if sd and ed_next:
-                conds.append(and_(MaintenanceRecord.maintenance_end != None, MaintenanceRecord.maintenance_end >= sd, MaintenanceRecord.maintenance_end < ed_next))
+                conds.append(and_(MaintenanceRecord.maintenance_end != None, MaintenanceRecord.maintenance_end >= sd,
+                                  MaintenanceRecord.maintenance_end < ed_next))
             elif sd:
                 conds.append(and_(MaintenanceRecord.maintenance_end != None, MaintenanceRecord.maintenance_end >= sd))
             elif ed_next:
-                conds.append(and_(MaintenanceRecord.maintenance_end != None, MaintenanceRecord.maintenance_end < ed_next))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_end != None, MaintenanceRecord.maintenance_end < ed_next))
 
             # 单日维护日期
             if sd and ed_next:
-                conds.append(and_(MaintenanceRecord.maintenance_start == None, MaintenanceRecord.maintenance_date != None, MaintenanceRecord.maintenance_date >= sd, MaintenanceRecord.maintenance_date < ed_next))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_start == None, MaintenanceRecord.maintenance_date != None,
+                         MaintenanceRecord.maintenance_date >= sd, MaintenanceRecord.maintenance_date < ed_next))
             elif sd:
-                conds.append(and_(MaintenanceRecord.maintenance_start == None, MaintenanceRecord.maintenance_date != None, MaintenanceRecord.maintenance_date >= sd))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_start == None, MaintenanceRecord.maintenance_date != None,
+                         MaintenanceRecord.maintenance_date >= sd))
             elif ed_next:
-                conds.append(and_(MaintenanceRecord.maintenance_start == None, MaintenanceRecord.maintenance_date != None, MaintenanceRecord.maintenance_date < ed_next))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_start == None, MaintenanceRecord.maintenance_date != None,
+                         MaintenanceRecord.maintenance_date < ed_next))
 
             if conds:
                 q = q.filter(or_(*conds))
@@ -2787,7 +2801,9 @@ def create_app():
                     s.query(Instrument.id).filter(Instrument.keeper_id == user.id)
                 ))
             else:
-                return jsonify({"items": [], "pagination": {"page": 1, "page_size": page_size, "total": 0, "total_pages": 0, "has_prev": False, "has_next": False}})
+                return jsonify({"items": [],
+                                "pagination": {"page": 1, "page_size": page_size, "total": 0, "total_pages": 0,
+                                               "has_prev": False, "has_next": False}})
 
         total = q.count()
         offset = (page - 1) * page_size
@@ -2844,7 +2860,7 @@ def create_app():
         # 如果状态是进行中，确保结束时间为空
         elif status == "pending":
             m_end = None
-        
+
         rec = MaintenanceRecord(
             instrument_id=instrument_id,
             created_by=user.id,
@@ -2921,29 +2937,29 @@ def create_app():
         rec = s.query(MaintenanceRecord).get(record_id)
         if not rec:
             return jsonify({"error": "not_found"}), 404
-        
+
         # 权限：管理员/超管；或保管人且记录所属仪器为其管理
         if user.role not in ["admin", "super_admin"]:
             if not (getattr(user, 'is_keeper', False) and getattr(user, 'id', None)):
                 return jsonify({"error": "permission_denied"}), 403
-            
+
             inst = s.query(Instrument).get(rec.instrument_id)
             if not (inst and inst.keeper_id == user.id):
                 return jsonify({"error": "permission_denied"}), 403
-        
+
         # 记录仪器ID以便同步状态
         instrument_id = rec.instrument_id
-        
+
         # 删除记录
         s.delete(rec)
         s.commit()
-        
+
         # 同步仪器预约状态
         try:
             sync_instrument_booking_by_maintenance(instrument_id)
         except Exception as _:
             pass
-        
+
         return jsonify({"message": "deleted"})
 
     @app.get("/api/maintenance/export")
@@ -2963,7 +2979,8 @@ def create_app():
                 if user_id:
                     user = s.query(User).get(user_id)
                     if user:
-                        s.close(); s = get_session()
+                        s.close();
+                        s = get_session()
                     else:
                         user = get_current_user()
                 else:
@@ -2997,25 +3014,37 @@ def create_app():
 
             conds = []
             if sd and ed_next:
-                conds.append(and_(MaintenanceRecord.maintenance_start != None, MaintenanceRecord.maintenance_start >= sd, MaintenanceRecord.maintenance_start < ed_next))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_start != None, MaintenanceRecord.maintenance_start >= sd,
+                         MaintenanceRecord.maintenance_start < ed_next))
             elif sd:
-                conds.append(and_(MaintenanceRecord.maintenance_start != None, MaintenanceRecord.maintenance_start >= sd))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_start != None, MaintenanceRecord.maintenance_start >= sd))
             elif ed_next:
-                conds.append(and_(MaintenanceRecord.maintenance_start != None, MaintenanceRecord.maintenance_start < ed_next))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_start != None, MaintenanceRecord.maintenance_start < ed_next))
 
             if sd and ed_next:
-                conds.append(and_(MaintenanceRecord.maintenance_end != None, MaintenanceRecord.maintenance_end >= sd, MaintenanceRecord.maintenance_end < ed_next))
+                conds.append(and_(MaintenanceRecord.maintenance_end != None, MaintenanceRecord.maintenance_end >= sd,
+                                  MaintenanceRecord.maintenance_end < ed_next))
             elif sd:
                 conds.append(and_(MaintenanceRecord.maintenance_end != None, MaintenanceRecord.maintenance_end >= sd))
             elif ed_next:
-                conds.append(and_(MaintenanceRecord.maintenance_end != None, MaintenanceRecord.maintenance_end < ed_next))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_end != None, MaintenanceRecord.maintenance_end < ed_next))
 
             if sd and ed_next:
-                conds.append(and_(MaintenanceRecord.maintenance_start == None, MaintenanceRecord.maintenance_date != None, MaintenanceRecord.maintenance_date >= sd, MaintenanceRecord.maintenance_date < ed_next))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_start == None, MaintenanceRecord.maintenance_date != None,
+                         MaintenanceRecord.maintenance_date >= sd, MaintenanceRecord.maintenance_date < ed_next))
             elif sd:
-                conds.append(and_(MaintenanceRecord.maintenance_start == None, MaintenanceRecord.maintenance_date != None, MaintenanceRecord.maintenance_date >= sd))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_start == None, MaintenanceRecord.maintenance_date != None,
+                         MaintenanceRecord.maintenance_date >= sd))
             elif ed_next:
-                conds.append(and_(MaintenanceRecord.maintenance_start == None, MaintenanceRecord.maintenance_date != None, MaintenanceRecord.maintenance_date < ed_next))
+                conds.append(
+                    and_(MaintenanceRecord.maintenance_start == None, MaintenanceRecord.maintenance_date != None,
+                         MaintenanceRecord.maintenance_date < ed_next))
 
             if conds:
                 q = q.filter(or_(*conds))
@@ -3038,7 +3067,8 @@ def create_app():
                 "记录ID": m.id,
                 "仪器ID": m.instrument_id,
                 "仪器名称": inst.name if inst else "",
-                "开始时间": (m.maintenance_start.strftime("%Y-%m-%d %H:%M") if m.maintenance_start else (m.maintenance_date.strftime("%Y-%m-%d %H:%M") if m.maintenance_date else "")),
+                "开始时间": (m.maintenance_start.strftime("%Y-%m-%d %H:%M") if m.maintenance_start else (
+                    m.maintenance_date.strftime("%Y-%m-%d %H:%M") if m.maintenance_date else "")),
                 "结束时间": (m.maintenance_end.strftime("%Y-%m-%d %H:%M") if m.maintenance_end else ""),
                 "类型": m.maintenance_type,
                 "描述": m.description or "",
@@ -3051,14 +3081,16 @@ def create_app():
         df.to_excel(bio, index=False)
         bio.seek(0)
         filename = f"维护记录_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        return send_file(bio, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", as_attachment=True, download_name=filename)
+        return send_file(bio, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=filename)
 
     # 简单版：无需JWT的飞书授权与回调（返回JSON）
     @app.get("/authorize")
     def feishu_authorize_simple():
         """跳转飞书登录页，完成后回调到 /oauth/callback（按简化示例方式）。"""
         # 使用配置中的回调地址
-        use_redirect = FEISHU_REDIRECT_URI or (os.getenv("BASE_URL", request.url_root.rstrip("/")) + "/api/auth/feishu/callback")
+        use_redirect = FEISHU_REDIRECT_URI or (
+                    os.getenv("BASE_URL", request.url_root.rstrip("/")) + "/api/auth/feishu/callback")
         auth_url = (
             "https://open.feishu.cn/open-apis/authen/v1/index"
             f"?app_id={FEISHU_APP_ID}&redirect_uri={use_redirect}"
@@ -3078,9 +3110,11 @@ def create_app():
             app_token_payload = {"app_id": FEISHU_APP_ID, "app_secret": FEISHU_APP_SECRET}
             app_token_resp = requests.post(app_token_url, json=app_token_payload, timeout=10)
             app_token_json = app_token_resp.json()
-            app_access_token = app_token_json.get("app_access_token") or (app_token_json.get("data", {}) or {}).get("app_access_token")
+            app_access_token = app_token_json.get("app_access_token") or (app_token_json.get("data", {}) or {}).get(
+                "app_access_token")
             if app_token_resp.status_code != 200 or not app_access_token:
-                return jsonify({"error": "app_token_error", "status": app_token_resp.status_code, "details": app_token_json}), 400
+                return jsonify(
+                    {"error": "app_token_error", "status": app_token_resp.status_code, "details": app_token_json}), 400
 
             # 2) 使用 app_access_token 交换用户 access_token
             user_token_url = "https://open.feishu.cn/open-apis/authen/v1/access_token"
@@ -3092,7 +3126,8 @@ def create_app():
             token_resp = requests.post(user_token_url, json=body, headers=headers, timeout=10)
             token_json = token_resp.json()
             if token_resp.status_code != 200:
-                return jsonify({"error": "token_http_error", "status": token_resp.status_code, "details": token_json}), 400
+                return jsonify(
+                    {"error": "token_http_error", "status": token_resp.status_code, "details": token_json}), 400
             user_access_token = (token_json or {}).get("data", {}).get("access_token") or token_json.get("access_token")
             if not user_access_token:
                 return jsonify({"error": "token_error", "details": token_json}), 400
@@ -3115,9 +3150,9 @@ def create_app():
             email = u_data.get("email") or (u_data.get("user") or {}).get("email")
             # 尝试获取手机号
             phone = (
-                u_data.get("mobile")
-                or (u_data.get("user") or {}).get("mobile")
-                or (u_data.get("mobile_visible") if isinstance(u_data.get("mobile_visible"), str) else None)
+                    u_data.get("mobile")
+                    or (u_data.get("user") or {}).get("mobile")
+                    or (u_data.get("mobile_visible") if isinstance(u_data.get("mobile_visible"), str) else None)
             )
             if not phone:
                 try:
@@ -3141,7 +3176,8 @@ def create_app():
             user = s.query(User).filter(User.feishu_user_id == feishu_user_id).first()
             if not user:
                 role_val = "admin" if (name == "黄敏青") else "user"
-                user = User(name=name, feishu_user_id=feishu_user_id, avatar_url=avatar_url, email=email, phone=phone, type="employee", role=role_val)
+                user = User(name=name, feishu_user_id=feishu_user_id, avatar_url=avatar_url, email=email, phone=phone,
+                            type="employee", role=role_val)
                 s.add(user)
                 s.commit()
             else:
@@ -3263,7 +3299,7 @@ def init_database():
     database_url = os.getenv('DATABASE_URL', 'sqlite:///instrument_reservation.db')
     engine = create_engine(database_url)
     Base = declarative_base()
-    
+
     # 重新定义模型（简化版）
     class User(Base):
         __tablename__ = "users"
@@ -3321,7 +3357,7 @@ def init_database():
         status = Column(String(32), default="pending")
         created_at = Column(DateTime, default=datetime.utcnow)
         updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # 创建所有表
     Base.metadata.create_all(engine)
     print("Database tables created successfully.")
