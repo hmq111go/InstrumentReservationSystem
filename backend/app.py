@@ -90,6 +90,31 @@ def create_app():
     FEISHU_TOKEN_URL = f"{FEISHU_API_BASE}/auth/v3/tenant_access_token/internal"
     FEISHU_MESSAGE_URL = f"{FEISHU_API_BASE}/im/v1/messages"
     FEISHU_TIMEOUT = 10
+    # 更新已发送卡片：/im/v1/messages/{message_id}/card
+    def update_feishu_card(open_message_id: str, card: dict, update_token: str) -> bool:
+        """使用回调提供的 token 更新原消息卡片内容（有效期30分钟，最多2次）。"""
+        if not open_message_id or not card or not update_token:
+            return False
+
+        access_token = get_tenant_access_token()
+        if not access_token:
+            return False
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json; charset=utf-8",
+            # 按飞书规范携带卡片更新 token
+            "X-Lark-Card-Token": update_token,
+        }
+        url = f"{FEISHU_MESSAGE_URL}/{open_message_id}/card"
+        payload = {"card": card}
+        try:
+            resp = requests.put(url, headers=headers, json=payload, timeout=FEISHU_TIMEOUT)
+            resp.raise_for_status()
+            result = resp.json()
+            return result.get("code") == 0
+        except Exception:
+            return False
 
     def get_tenant_access_token() -> str:
         """获取飞书租户访问令牌，带缓存机制"""
@@ -1711,6 +1736,9 @@ def create_app():
                 if isinstance(event, dict) and event.get("action")
                 else (data.get("action") or {}).get("value", {})
             )
+            # 新版回调会提供更新卡片所需的 token 与 message id
+            update_token = (event.get("token") if isinstance(event, dict) else None) or data.get("token")
+            open_message_id = ((event.get("context") or {}).get("open_message_id") if isinstance(event, dict) else None)
             reservation_id = action_value.get("reservation_id")
             keeper_id = action_value.get("keeper_id") 
             action = action_value.get("action")
@@ -1762,8 +1790,14 @@ def create_app():
                 except Exception:
                     pass
                 
-                # 返回更新后的卡片和toast提示
+                # 构建更新后的卡片
                 card_response = build_status_card(res, inst, action)
+                # 主动调用飞书更新接口，确保原卡片被替换
+                try:
+                    if open_message_id and update_token:
+                        update_feishu_card(open_message_id, card_response, update_token)
+                except Exception:
+                    pass
                 toast_text = "已同意" if action == "approve" else "已驳回"
                 
                 return jsonify({
