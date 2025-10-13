@@ -274,7 +274,7 @@ def create_app():
                         },
                         "behaviors": [
                             {
-                                "type": "action",
+                                "type": "callback",
                                 "value": {
                                     "reservation_id": reservation.id,
                                     "keeper_id": keeper.id,
@@ -293,7 +293,7 @@ def create_app():
                         },
                         "behaviors": [
                             {
-                                "type": "action",
+                                "type": "callback",
                                 "value": {
                                     "reservation_id": reservation.id,
                                     "keeper_id": keeper.id,
