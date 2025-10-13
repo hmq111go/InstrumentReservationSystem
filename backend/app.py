@@ -1698,6 +1698,12 @@ def create_app():
             if not data:
                 return jsonify({"error": "invalid_request"}), 400
             
+            # 飞书卡片/事件回调的 URL 校验：需要原样返回 challenge
+            # 兼容不同结构：顶层 challenge 或 event.challenge
+            challenge = data.get("challenge") or (data.get("event") or {}).get("challenge")
+            if challenge:
+                return jsonify({"challenge": challenge})
+            
             # 解析回调数据（兼容新版 card.action.trigger 的 event 包裹，以及旧版直出结构）
             event = data.get("event") or {}
             action_value = (
