@@ -92,7 +92,9 @@ def create_app():
     FEISHU_TIMEOUT = 10
     # 更新已发送卡片：/im/v1/messages/{message_id}/card
     def update_feishu_card(open_message_id: str, card: dict, update_token: str) -> bool:
-        """使用回调提供的 token 更新原消息卡片内容（有效期30分钟，最多2次）。"""
+        """使用回调提供的 token 更新原消息卡片内容（有效期30分钟，最多2次）。
+        传入的是 open_message_id，需要在请求中声明 message_id_type=open_message_id。
+        """
         if not open_message_id or not card or not update_token:
             return False
 
@@ -106,13 +108,24 @@ def create_app():
             # 按飞书规范携带卡片更新 token
             "X-Lark-Card-Token": update_token,
         }
-        url = f"{FEISHU_MESSAGE_URL}/{open_message_id}/card"
+        # 指定使用 open_message_id 类型
+        url = f"{FEISHU_MESSAGE_URL}/{open_message_id}/card?message_id_type=open_message_id"
         payload = {"card": card}
         try:
             resp = requests.put(url, headers=headers, json=payload, timeout=FEISHU_TIMEOUT)
             resp.raise_for_status()
             result = resp.json()
-            return result.get("code") == 0
+            if result.get("code") == 0:
+                return True
+            # 回退：若上面失败，尝试按普通 message_id（极少数情况下回调给的是 message_id）
+            try:
+                url2 = f"{FEISHU_MESSAGE_URL}/{open_message_id}/card"
+                resp2 = requests.put(url2, headers=headers, json=payload, timeout=FEISHU_TIMEOUT)
+                resp2.raise_for_status()
+                result2 = resp2.json()
+                return result2.get("code") == 0
+            except Exception:
+                return False
         except Exception:
             return False
 
@@ -1744,10 +1757,11 @@ def create_app():
             action = action_value.get("action")
             
             if not all([reservation_id, keeper_id, action]):
-                return jsonify({"error": "invalid_action_data"}), 400
+                # 按飞书规范返回 200 + toast，避免 200672
+                return jsonify({"toast": {"text": "无效的操作数据"}})
             
             if action not in ("approve", "reject"):
-                return jsonify({"error": "invalid_action"}), 400
+                return jsonify({"toast": {"text": "无效操作"}})
             
             s = get_session()
             try:
@@ -1760,16 +1774,16 @@ def create_app():
                     return jsonify({"error": "permission_denied"}), 403
                 
                 if res.status != "pending":
-                    # 返回当前状态的卡片
-                    return jsonify(build_status_card(res, inst, action))
+                    # 返回当前状态的卡片（需包在 card 字段内）
+                    return jsonify({"card": build_status_card(res, inst, action)})
                 
                 # 处理审批
                 if action == "approve":
                     if has_conflict(s, res.instrument_id, res.start_time, res.end_time, exclude_id=res.id):
+                        # 返回 toast 提示，维持原卡片不变
                         return jsonify({
-                            "error": "time_conflict",
                             "toast": {"text": "时间冲突，无法通过"}
-                        }), 409
+                        })
                     res.status = "approved"
                 else:
                     res.status = "rejected"
