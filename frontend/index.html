@@ -415,12 +415,17 @@
       <button @click="createReservation" :disabled="!canReserve" class="btn btn-primary">预约所选</button>
       <span v-if="selectedRangeText">{{ selectedRangeText }}</span>
     </div>
+    <div v-if="canReserve" style="margin-top:12px;">
+      <label style="display:block; margin-bottom:8px; font-weight:600; color:var(--text-primary);">预约备注（可选）</label>
+      <textarea v-model="reservationNotes" placeholder="请输入预约备注..." style="width:100%; min-height:60px; padding:8px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:14px; resize:vertical; font-family:inherit;"></textarea>
+    </div>
     <div style="margin-top:16px">
       <h3>我的预约</h3>
       <div v-if="myReservations.length === 0" style="color: #64748b; font-size: 14px; padding: 8px 0;">暂无预约</div>
       <div v-for="r in myReservations" :key="r.id" style="display:flex;gap:8px;align-items:center;border-bottom:1px solid #f1f5f9;padding:6px 0">
         <span>[{{ getStatusCn(r.status) }}]</span>
         <span>{{ formatDT(r.start_time) }} → {{ formatDT(r.end_time) }}</span>
+        <span v-if="r.notes" style="color:#64748b;font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" :title="r.notes">备注: {{ r.notes }}</span>
         <button v-if="user.role==='admin' && r.status!=='approved'" @click="approve(r.id)">审核通过</button>
         <button v-if="user.role==='admin' && r.status!=='rejected'" @click="reject(r.id)">驳回</button>
         <button v-if="user.role==='admin' || r.employee_id===user.id" @click="cancel(r.id)">取消</button>
@@ -463,6 +468,11 @@
         </div>
       </div>
 
+      <div v-if="canReserve" style="margin:12px 0;">
+        <label style="display:block; margin-bottom:8px; font-weight:600; color:var(--text-primary);">预约备注（可选）</label>
+        <textarea v-model="reservationNotes" placeholder="请输入预约备注..." style="width:100%; min-height:60px; padding:8px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:14px; resize:vertical; font-family:inherit;"></textarea>
+      </div>
+
       <div class="mobile-toolbar">
         <button class="btn btn-secondary" @click="goBack">返回</button>
         <button class="btn btn-primary" @click="mobileReserve" :disabled="!canReserve">预约所选</button>
@@ -475,6 +485,7 @@
           <span>[{{ getStatusCn(r.status) }}]</span>
           <span>{{ r.employee_name || '匿名' }}</span>
           <span>{{ formatDT(r.start_time) }} → {{ formatDT(r.end_time) }}</span>
+          <span v-if="r.notes" style="color:#64748b;font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" :title="r.notes">备注: {{ r.notes }}</span>
         </div>
       </div>
     </div>
@@ -543,6 +554,7 @@ createApp({
 
     const selection = ref(null) // {start, end}
     const slotMinutes = ref(15)
+    const reservationNotes = ref('') // 预约备注
     const totalRows = computed(()=> Math.floor(24*60/slotMinutes.value))
 
     function cellTime(day, row){
@@ -710,8 +722,9 @@ createApp({
         instrument_id: selectedInstrumentId.value,
         employee_id: user.value.id,
         start_time: startISO,
-        end_time: endISO
-      }, { headers: headers.value }).then(()=>{ selection.value=null; loadReservations() }).catch(e=> alert(e.response?.data?.error||'error'))
+        end_time: endISO,
+        notes: reservationNotes.value
+      }, { headers: headers.value }).then(()=>{ selection.value=null; reservationNotes.value=''; loadReservations() }).catch(e=> alert(e.response?.data?.error||'error'))
     }
 
     async function approve(id){ await axios.post(`${api.value}/api/reservations/${id}/approve`, {}, { headers: headers.value }); loadReservations() }

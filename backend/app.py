@@ -479,6 +479,7 @@ def create_app():
         start_time = Column(DateTime, nullable=False)
         end_time = Column(DateTime, nullable=False)
         status = Column(String(32), default="pending")  # pending/approved/rejected/cancelled
+        notes = Column(Text)  # 预约备注
         created_at = Column(DateTime, default=now_cn)
 
         instrument = relationship("Instrument", back_populates="reservations")
@@ -1654,6 +1655,7 @@ def create_app():
             user_id=target_user_id,
             start_time=start_time,
             end_time=end_time,
+            notes=data.get("notes"),  # 预约备注
             status=("approved" if (not requires_approval or is_keeper_self_booking) else "pending"),
         )
         s.add(res)
@@ -1927,6 +1929,9 @@ def create_app():
             return jsonify({"error": "time_conflict"}), 409
         res.start_time = new_start
         res.end_time = new_end
+        # 更新备注字段
+        if "notes" in data:
+            res.notes = data.get("notes")
         # 检查仪器是否需要审批，与创建逻辑保持一致：
         # - 开启审批：保管员本人修改则直批通过，其余为待审批
         # - 未开启审批：直接通过
@@ -2065,6 +2070,7 @@ def create_app():
             "start_time": iso(r.start_time),
             "end_time": iso(r.end_time),
             "status": r.status,
+            "notes": r.notes,  # 预约备注
             "instrument_name": r.instrument.name if r.instrument else None,
             "employee_name": r.user.name if r.user else None,  # 向后兼容
             "user_name": r.user.name if r.user else None,

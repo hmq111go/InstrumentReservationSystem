@@ -393,13 +393,14 @@
       </div>
       <div style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 8px 0;">提示：默认不显示已取消的记录;筛选条件需点击查询生效</div>
       <table>
-        <thead><tr><th>仪器</th><th>开始</th><th>结束</th><th>预约人</th><th>状态</th><th style="text-align: center;">操作</th></tr></thead>
+        <thead><tr><th>仪器</th><th>开始</th><th>结束</th><th>预约人</th><th>备注</th><th>状态</th><th style="text-align: center;">操作</th></tr></thead>
         <tbody>
           <tr v-for="r in filtered" :key="r.id">
             <td><span class="chip chip-primary">{{ r.instrument_name }}</span></td>
             <td><span class="chip chip-muted">{{ formatDateTime(r.start_time) }}</span></td>
             <td><span class="chip chip-muted">{{ formatDateTime(r.end_time) }}</span></td>
             <td><span class="chip">{{ r.employee_name }}</span></td>
+            <td><span class="chip chip-muted" :title="r.notes">{{ r.notes || '无' }}</span></td>
             <td>
               <span :class="'badge ' + getStatusClass(r.status)">{{ getStatusText(r.status) }}</span>
             </td>

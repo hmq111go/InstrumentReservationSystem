@@ -305,6 +305,11 @@
     </div>
   </div>
 
+  <div v-if="canReserve" style="margin:12px 0;">
+    <label style="display:block; margin-bottom:8px; font-weight:600; color:var(--text-primary);">预约备注（可选）</label>
+    <textarea v-model="reservationNotes" placeholder="请输入预约备注..." style="width:100%; min-height:60px; padding:8px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:14px; resize:vertical; font-family:inherit;"></textarea>
+  </div>
+
   <div class="toolbar">
     <button class="btn btn-secondary" @click="goBack">返回</button>
     <button class="btn btn-primary" @click="reserve" :disabled="!canReserve">预约所选</button>
@@ -341,6 +346,7 @@ createApp({
     const reservations = ref([])
     const selection = ref(null)
     const slotMinutes = ref(15)
+    const reservationNotes = ref('') // 预约备注
 
     const dateLabel = computed(()=>{
       const d = viewDate.value; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
@@ -466,8 +472,8 @@ createApp({
       // 以浏览器本地时间为准，避免时差：去掉Z
       const startISO = toLocalISOString(selection.value.start)
       const endISO = toLocalISOString(selection.value.end)
-      await axios.post(`${api.value}/api/reservations`, { instrument_id: instrumentId.value, employee_id: user.value.id, start_time: startISO, end_time: endISO }, { headers: headers.value });
-      selection.value=null; loadReservations()
+      await axios.post(`${api.value}/api/reservations`, { instrument_id: instrumentId.value, employee_id: user.value.id, start_time: startISO, end_time: endISO, notes: reservationNotes.value }, { headers: headers.value });
+      selection.value=null; reservationNotes.value=''; loadReservations()
     }
 
     async function cancelReservation(reservationId){
