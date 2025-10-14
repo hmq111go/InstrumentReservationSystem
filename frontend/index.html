@@ -484,9 +484,8 @@
         <div v-if="dayReservations.length===0" style="color:#64748b; font-size:14px">暂无预约</div>
         <div v-for="r in dayReservations" :key="r.id" style="display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid #f1f5f9">
           <span>[{{ getStatusCn(r.status) }}]</span>
-          <span>{{ r.employee_name || '匿名' }}</span>
+          <span>{{ r.employee_name || '匿名' }}<span v-if="r.notes">（{{ r.notes }}）</span></span>
           <span>{{ formatDT(r.start_time) }} → {{ formatDT(r.end_time) }}</span>
-          <span v-if="r.notes" style="color:#64748b;font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" :title="r.notes">备注: {{ r.notes }}</span>
         </div>
       </div>
     </div>
@@ -937,12 +936,18 @@ createApp({
     function cellLabel(day,row){
       const s = cellTime(day,row); const e = addMinutes(s,slotMinutes.value)
       const r = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status!=='cancelled' && r.status!=='rejected')
-      return r ? (r.employee_name||'已预约') : ''
+      if(!r) return ''
+      const name = r.employee_name || '已预约'
+      const note = (r.notes && String(r.notes).trim()) ? `（${r.notes}）` : ''
+      return `${name}${note}`
     }
     function cellTooltip(day,row){
       const s = cellTime(day,row); const e = addMinutes(s,slotMinutes.value)
       const r = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status!=='cancelled' && r.status!=='rejected')
-      return r ? `${r.employee_name||''} ${formatDT(r.start_time)}-${formatDT(r.end_time)}` : ''
+      if(!r) return ''
+      const name = r.employee_name || ''
+      const note = (r.notes && String(r.notes).trim()) ? `（${r.notes}）` : ''
+      return `${name}${note} ${formatDT(r.start_time)}-${formatDT(r.end_time)}`
     }
 
     function cellPending(day,row){

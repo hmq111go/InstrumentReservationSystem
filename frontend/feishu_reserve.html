@@ -427,7 +427,8 @@ createApp({
           const endTime = new Date(slot.resv.end_time)
           const fullTimeRange = `${String(startTime.getHours()).padStart(2,'0')}:${String(startTime.getMinutes()).padStart(2,'0')} - ${String(endTime.getHours()).padStart(2,'0')}:${String(endTime.getMinutes()).padStart(2,'0')}`
           
-          if(confirm(`确定要取消预约吗？\n时间：${fullTimeRange}\n预约人：${slot.resv.employee_name}`)) {
+          const noteText = (slot.resv.notes && String(slot.resv.notes).trim()) ? `（${slot.resv.notes}）` : ''
+          if(confirm(`确定要取消预约吗？\n时间：${fullTimeRange}\n预约人：${slot.resv.employee_name}${noteText}`)) {
             cancelReservation(slot.resv.id)
           }
         }
