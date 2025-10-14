@@ -459,7 +459,7 @@
         <div v-for="slot in mobileSlots" :key="slot.key" class="slot-item" :class="slot.className" @click="mobileClickSlot(slot)">
           <div>
             <div style="font-weight:600">{{ slot.label }}</div>
-            <div v-if="slot.resv" style="font-size:12px;color:#475569">{{ slot.resv.employee_name }} · {{ formatDT(slot.resv.start_time) }}→{{ formatDT(slot.resv.end_time) }}</div>
+            <div v-if="slot.resv" style="font-size:12px;color:#475569">{{ slot.resv.employee_name }}<span v-if="slot.resv.notes">（{{ slot.resv.notes }}）</span> · {{ formatDT(slot.resv.start_time) }}→{{ formatDT(slot.resv.end_time) }}</div>
             <div v-if="slot.resv && slot.resv.notes" style="font-size:12px;color:#64748b; margin-top:2px" :title="slot.resv.notes">备注：{{ slot.resv.notes }}</div>
           </div>
           <div>

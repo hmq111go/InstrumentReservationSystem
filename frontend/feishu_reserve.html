@@ -283,8 +283,9 @@
     <div v-for="slot in slots" :key="slot.key" class="slot-item" :class="slot.className" @click="clickSlot(slot)">
       <div>
         <div style="font-weight:600">{{ slot.label }}</div>
-        <div v-if="slot.resv" style="font-size:12px;color:#475569">{{ slot.resv.employee_name }} </div>
-        <div v-if="slot.resv && slot.resv.notes" style="font-size:12px;color:#64748b; margin-top:2px" :title="slot.resv.notes">备注：{{ slot.resv.notes }}</div>
+        <div v-if="slot.resv" style="font-size:12px;color:#475569">
+          {{ slot.resv.employee_name }}<span v-if="slot.resv.notes">（{{ slot.resv.notes }}）</span>
+        </div>
         <div v-if="slot.resv && slot.resv.status==='pending'" style="font-size:11px;color:#ff9500;margin-top:2px">审核中</div>
       </div>
       <div>
