@@ -1607,6 +1607,10 @@ def create_app():
         s = get_session()
         user = get_current_user()
         data = request.json or {}
+        try:
+            print("[DEBUG] create_reservation payload notes:", (data.get("notes") if isinstance(data, dict) else None))
+        except Exception:
+            pass
         instrument_id = int(data.get("instrument_id"))
         target_user_id = int(data.get("employee_id") or user.id)
         start_time = parse_iso8601(data.get("start_time"))
@@ -1660,6 +1664,10 @@ def create_app():
         )
         s.add(res)
         s.commit()
+        try:
+            print(f"[DEBUG] create_reservation saved notes for res_id={res.id}:", res.notes)
+        except Exception:
+            pass
         # 若需要审批，给保管员发送飞书卡片
         try:
             if res.status == "pending" and inst and getattr(inst, "keeper_id", None):
@@ -1917,6 +1925,10 @@ def create_app():
         if user.role not in ["admin", "super_admin"] and res.user_id != user.id:
             return jsonify({"error": "forbidden"}), 403
         data = request.json or {}
+        try:
+            print("[DEBUG] update_reservation payload notes:", (data.get("notes") if isinstance(data, dict) else None))
+        except Exception:
+            pass
         new_start = parse_iso8601(data.get("start_time")) or res.start_time
         new_end = parse_iso8601(data.get("end_time")) or res.end_time
         if new_start >= new_end:
@@ -1939,6 +1951,10 @@ def create_app():
         is_keeper_self_booking = bool(getattr(inst, "keeper_id", None)) and (res.user_id == inst.keeper_id)
         res.status = ("approved" if (not requires_approval or is_keeper_self_booking) else "pending")
         s.commit()
+        try:
+            print(f"[DEBUG] update_reservation saved notes for res_id={res.id}:", res.notes)
+        except Exception:
+            pass
         return jsonify(serialize_reservation(res))
 
     @app.delete("/api/reservations/<int:reservation_id>")
