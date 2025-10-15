@@ -428,8 +428,7 @@
                 </div>
                 <div v-else-if="i.booking_enabled !== 'false'" style="font-size:14px; line-height:1.3;">
                   <div style="text-align:center; font-weight:600;">{{ getNextUserName(i.id) }}</div>
-                  <div>{{ getNextUserTimeCn(i.id) }}</div>
-                  <div v-if="instrumentStats[i.id] && instrumentStats[i.id].nextUser && instrumentStats[i.id].nextUser.notes" style="font-size:12px;color:#64748b; margin-top:2px" :title="instrumentStats[i.id].nextUser.notes">备注：{{ instrumentStats[i.id].nextUser.notes }}</div>
+                  <div style="text-align:center;">{{ getNextUserTimeCn(i.id) }}</div>
                 </div>
                 <div v-else style="color:var(--text-tertiary)">-</div>
               </td>
@@ -753,7 +752,9 @@ createApp({
     function getNextUserName(instrumentId){
       const stats = instrumentStats.value[instrumentId]
       if(!stats || !stats.nextUser) return '无'
-      return stats.nextUser.name || '无'
+      const name = stats.nextUser.name || '无'
+      const notes = stats.nextUser.notes && String(stats.nextUser.notes).trim()
+      return notes ? `${name}（${notes}）` : name
     }
     function getNextUserTimeCn(instrumentId){
       const stats = instrumentStats.value[instrumentId]
