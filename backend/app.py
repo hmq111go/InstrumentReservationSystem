@@ -1590,6 +1590,7 @@ def create_app():
                 "name": getattr(getattr(next_res_obj, "user", None), "name", None) or "未知用户",
                 "start_time": next_res_obj.start_time.isoformat() if next_res_obj.start_time else None,
                 "end_time": next_res_obj.end_time.isoformat() if next_res_obj.end_time else None,
+                "notes": getattr(next_res_obj, "notes", None),
             }
 
         return jsonify({

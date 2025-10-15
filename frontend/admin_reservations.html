@@ -367,7 +367,7 @@
             <td><span class="chip chip-primary">{{ r.instrument_name }}</span></td>
             <td><span class="chip chip-muted">{{ formatDateTime(r.start_time) }}</span></td>
             <td><span class="chip chip-muted">{{ formatDateTime(r.end_time) }}</span></td>
-            <td><span class="chip">{{ r.employee_name }}</span></td>
+            <td><span class="chip">{{ r.employee_name }}<span v-if="r.notes">（{{ r.notes }}）</span></span></td>
             <td>
               <span :class="'badge ' + getStatusClass(r.status)">{{ getStatusText(r.status) }}</span>
             </td>
