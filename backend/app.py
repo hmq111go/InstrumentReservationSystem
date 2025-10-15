@@ -243,6 +243,8 @@ def create_app():
         start_str = reservation.start_time.strftime("%Y-%m-%d %H:%M")
         end_str = reservation.end_time.strftime("%Y-%m-%d %H:%M")
         reserver_name = reserver.name if reserver else "未知用户"
+        note_text = f"（{reservation.notes}）" if getattr(reservation, "notes", None) else ""
+        reserver_display = f"{reserver_name}{note_text}"
         instrument_name = inst.name if inst else "未知仪器"
 
         card = {
@@ -260,7 +262,7 @@ def create_app():
                         "tag": "div",
                         "text": {
                             "tag": "lark_md",
-                            "content": f"**申请人：** {reserver_name}<br>**仪器：** {instrument_name}<br>**时段：** {start_str} - {end_str}"
+                            "content": f"**申请人：** {reserver_display}<br>**仪器：** {instrument_name}<br>**时段：** {start_str} - {end_str}"
 
                         }
                     },
@@ -347,6 +349,8 @@ def create_app():
         try:
             reserver = s.query(User).get(reservation.user_id)
             reserver_name = reserver.name if reserver else "未知用户"
+            note_text = f"（{reservation.notes}）" if getattr(reservation, "notes", None) else ""
+            reserver_display = f"{reserver_name}{note_text}"
         finally:
             s.close()
 
@@ -381,7 +385,7 @@ def create_app():
                         "tag": "div",
                         "text": {
                             "tag": "lark_md",
-                            "content": f"**申请人：** {reserver_name}<br>**仪器：** {instrument.name if instrument else '未知仪器'}<br>**时段：** {start_str} - {end_str}"
+                            "content": f"**申请人：** {reserver_display}<br>**仪器：** {instrument.name if instrument else '未知仪器'}<br>**时段：** {start_str} - {end_str}"
                         }
                     },
                     {
