@@ -3440,18 +3440,6 @@ def init_database():
         warranty_company = Column(String(255))
         admin_notes = Column(Text)
         photo_url = Column(String(1024))
-
-    class Reservation(Base):
-        __tablename__ = "reservations"
-        id = Column(Integer, primary_key=True)
-        user_id = Column(Integer, ForeignKey("users.id"))
-        instrument_id = Column(Integer, ForeignKey("instruments.id"))
-        start_time = Column(DateTime)
-        end_time = Column(DateTime)
-        status = Column(String(32), default="pending")
-        created_at = Column(DateTime, default=datetime.utcnow)
-        updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
     # 创建所有表
     Base.metadata.create_all(engine)
     print("Database tables created successfully.")
