@@ -475,14 +475,8 @@ createApp({
       // 以浏览器本地时间为准，避免时差：去掉Z
       const startISO = toLocalISOString(selection.value.start)
       const endISO = toLocalISOString(selection.value.end)
-      try {
-        await axios.post(`${api.value}/api/reservations`, { instrument_id: instrumentId.value, employee_id: user.value.id, start_time: startISO, end_time: endISO, notes: reservationNotes.value }, { headers: headers.value });
-        alert('预约成功！');
-        selection.value=null; reservationNotes.value=''; loadReservations()
-      } catch (error) {
-        console.error('预约失败:', error);
-        alert('预约失败: ' + (error.response?.data?.error || error.message));
-      }
+      await axios.post(`${api.value}/api/reservations`, { instrument_id: instrumentId.value, employee_id: user.value.id, start_time: startISO, end_time: endISO, notes: reservationNotes.value }, { headers: headers.value });
+      selection.value=null; reservationNotes.value=''; loadReservations()
     }
 
     async function cancelReservation(reservationId){
@@ -535,7 +529,7 @@ createApp({
       const m = { pending:'审核中', approved:'已通过', rejected:'已驳回', cancelled:'已取消' }
       return m[status] || status
     }
-    return { user, instr, isFeishu, dateLabel, prevDay, nextDay, slots, clickSlot, canReserve, reserve, cancelReservation, goBack, formatDT, getMaintenanceTypeText, getStatusCn }
+    return { user, instr, isFeishu, dateLabel, prevDay, nextDay, slots, clickSlot, canReserve, reserve, cancelReservation, goBack, formatDT, getMaintenanceTypeText, getStatusCn, reservationNotes }
   }
 }).mount('#app')
 </script>
