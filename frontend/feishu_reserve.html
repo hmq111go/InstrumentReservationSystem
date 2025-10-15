@@ -475,8 +475,14 @@ createApp({
       // 以浏览器本地时间为准，避免时差：去掉Z
       const startISO = toLocalISOString(selection.value.start)
       const endISO = toLocalISOString(selection.value.end)
-      await axios.post(`${api.value}/api/reservations`, { instrument_id: instrumentId.value, employee_id: user.value.id, start_time: startISO, end_time: endISO, notes: reservationNotes.value }, { headers: headers.value });
-      selection.value=null; reservationNotes.value=''; loadReservations()
+      try {
+        await axios.post(`${api.value}/api/reservations`, { instrument_id: instrumentId.value, employee_id: user.value.id, start_time: startISO, end_time: endISO, notes: reservationNotes.value }, { headers: headers.value });
+        alert('预约成功！');
+        selection.value=null; reservationNotes.value=''; loadReservations()
+      } catch (error) {
+        console.error('预约失败:', error);
+        alert('预约失败: ' + (error.response?.data?.error || error.message));
+      }
     }
 
     async function cancelReservation(reservationId){
