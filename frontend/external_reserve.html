@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>外部预约入口</title>
+  <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css" />
+  <script src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/axios@1.7.4/dist/axios.min.js"></script>
+  <style>
+    :root {
+      --primary: #007AFF;
+      --primary-hover: #0056CC;
+      --success: #34C759;
+      --warning: #FF9500;
+      --danger: #FF3B30;
+      --background: #F2F2F7;
+      --surface: #FFFFFF;
+      --surface-secondary: #F9F9F9;
+      --text-primary: #1D1D1F;
+      --text-secondary: #86868B;
+      --text-tertiary: #C7C7CC;
+      --border: #E5E5EA;
+      --border-light: #F2F2F7;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-lg: 16px;
+    }
+
+    * { box-sizing: border-box; transition: all 0.2s ease; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--background);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 20px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border-light);
+      max-width: 540px;
+      margin: 0 auto 16px;
+    }
+
+    .header {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .muted { color: var(--text-secondary); font-size: 13px; }
+
+    .row { display: flex; gap: 12px; align-items: center; }
+    .row + .row { margin-top: 10px; }
+
+    .input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      font-size: 14px;
+    }
+
+    .toolbar { display: flex; gap: 12px; align-items: center; margin: 12px 0; }
+
+    .btn {
+      padding: 12px 16px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: var(--surface-secondary); color: var(--text-primary); border: 1px solid var(--border); }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+
+    .slot-list {
+      max-height: 60vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+      margin: 12px 0;
+    }
+    .slot-item { display:flex; align-items:center; justify-content:space-between; padding: 14px 16px; border-bottom: 1px solid var(--border-light); cursor: pointer; }
+    .slot-item:last-child { border-bottom: none; }
+    .slot-item.free { background: rgba(52,199,89,0.05); }
+    .slot-item.free:hover { background: rgba(52,199,89,0.1); }
+    .slot-item.booked { background: rgba(255,59,48,0.05); cursor: not-allowed; }
+    .slot-item.selected { background: rgba(0,122,255,0.1); border: 1px solid var(--primary); }
+    .badge { font-size: 12px; padding: 4px 8px; border-radius: 12px; font-weight: 600; }
+    .badge.ok { background: var(--success); color:#fff; }
+    .badge.no { background: var(--danger); color:#fff; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--border-light); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: var(--text-tertiary); border-radius: 3px; }
+  </style>
+  <script>
+    function toLocalISOString(d){
+      const pad = n => String(n).padStart(2,'0')
+      const dt = new Date(d)
+      dt.setSeconds(0,0)
+      return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`
+    }
+  </script>
+  <script>
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const { createApp, ref, reactive, computed, onMounted } = Vue
+      createApp({
+        setup(){
+          const api = ref(window.API_BASE || '')
+          const token = ref(localStorage.getItem('token')||'')
+          const user = ref(null)
+          const instruments = ref([])
+          const instrumentId = ref('')
+          const instr = ref(null)
+          const reservations = ref([])
+          const viewDate = ref(new Date())
+          const selection = ref({ start: null, end: null })
+          const reservationNotes = ref('')
+          const name = ref('')
+          const password = ref('')
+          const registerMode = ref(false)
+          const slotMinutes = ref(15)
+          const isLoaded = ref(false)
+
+          const headers = computed(()=> token.value ? { Authorization: `Bearer ${token.value}` } : {})
+
+          async function fetchMe(){
+            if(!token.value) return
+            try{
+              const r = await axios.get(`${api.value}/api/auth/me`, { headers: headers.value })
+              user.value = r.data
+            }catch{ token.value=''; localStorage.removeItem('token'); }
+          }
+
+          async function externalLogin(){
+            if(!name.value || !password.value){ alert('请输入姓名和密码'); return }
+            try{
+              const r = await axios.post(`${api.value}/api/auth/external/${registerMode.value?'register':'login'}`, {
+                name: name.value,
+                password: password.value
+              })
+              token.value = r.data.token
+              localStorage.setItem('token', token.value)
+              localStorage.setItem('login_time', String(Date.now()))
+              await fetchMe()
+              await loadInstruments()
+              await loadReservations()
+            }catch(e){
+              alert(e.response?.data?.error || '登录失败')
+            }
+          }
+
+          async function loadInstruments(){
+            const r = await axios.get(`${api.value}/api/instruments`)
+            instruments.value = r.data
+          }
+          async function loadInstrument(){
+            if(!instrumentId.value) { instr.value=null; return }
+            const r = await axios.get(`${api.value}/api/instruments/${instrumentId.value}`)
+            instr.value = r.data
+            slotMinutes.value = Number(r.data?.slot_minutes || 15)
+          }
+          async function loadReservations(){
+            if(!instrumentId.value) return
+            const d = new Date(viewDate.value)
+            const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0')
+            const start_date = `${y}-${m}-${day}`
+            const t = new Date(d); t.setDate(t.getDate()+1)
+            const ty = t.getFullYear(), tm = String(t.getMonth()+1).padStart(2,'0'), td = String(t.getDate()).padStart(2,'0')
+            const end_date = `${ty}-${tm}-${td}`
+            const r = await axios.get(`${api.value}/api/reservations`, { params:{ instrument_id: instrumentId.value, start_date, end_date }, headers: headers.value })
+            reservations.value = r.data.items || r.data
+          }
+
+          function pickSlot(base, minutes){
+            const start = new Date(base)
+            const end = new Date(base); end.setMinutes(end.getMinutes()+minutes)
+            selection.value = { start, end }
+          }
+
+          async function reserve(){
+            if(!(user.value && user.value.id)) return alert('请先登录')
+            if(!instrumentId.value) return alert('请选择仪器')
+            if(!(selection.value && selection.value.start && selection.value.end)) return alert('请选择时间段')
+            try{
+              const startISO = toLocalISOString(selection.value.start)
+              const endISO = toLocalISOString(selection.value.end)
+              await axios.post(`${api.value}/api/reservations`, {
+                instrument_id: Number(instrumentId.value),
+                employee_id: user.value.id,
+                start_time: startISO,
+                end_time: endISO,
+                notes: reservationNotes.value
+              }, { headers: headers.value })
+              selection.value = { start:null, end:null }
+              reservationNotes.value = ''
+              await loadReservations()
+              alert('已提交预约，等待保管员处理')
+            }catch(e){
+              alert(e.response?.data?.error || '提交失败')
+            }
+          }
+
+          async function cancelReservation(reservationId){
+            try{
+              await axios.post(`${api.value}/api/reservations/${reservationId}/cancel`, {}, { headers: headers.value })
+              alert('预约已取消')
+              await loadReservations()
+            }catch(e){ alert(e.response?.data?.error || '取消失败') }
+          }
+
+          onMounted(async()=>{ await fetchMe(); await loadInstruments(); isLoaded.value=true })
+
+          const slots = computed(()=>{
+            const out = []
+            if(!instr.value) return out
+            // 维护或暂停预约时不展示时段
+            if(instr.value.current_maintenance || instr.value.status === 'maintenance' || instr.value.booking_enabled === 'false') return out
+            const d = new Date(viewDate.value)
+            const now = new Date()
+            const startHour = instr.value.booking_start_time ? parseInt(instr.value.booking_start_time.split(':')[0]) : 8
+            const startMinute = instr.value.booking_start_time ? parseInt(instr.value.booking_start_time.split(':')[1]) : 0
+            const endHour = instr.value.booking_end_time ? parseInt(instr.value.booking_end_time.split(':')[0]) : 18
+            const endMinute = instr.value.booking_end_time ? parseInt(instr.value.booking_end_time.split(':')[1]) : 0
+            const bookingStartMinutes = startHour * 60 + startMinute
+            const bookingEndMinutes = endHour * 60 + endMinute
+            for(let mins = bookingStartMinutes; mins < bookingEndMinutes; mins += slotMinutes.value){
+              const s = new Date(d); s.setHours(Math.floor(mins/60), mins%60, 0, 0)
+              const e = new Date(s); e.setMinutes(e.getMinutes() + slotMinutes.value)
+              const slotEndMinutes = e.getHours()*60 + e.getMinutes()
+              if(slotEndMinutes > bookingEndMinutes) continue
+              if(s < now) continue
+              const resv = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status!=='cancelled' && r.status!=='rejected')
+              let className = 'free'
+              if(resv){
+                className = 'booked'
+                if(user.value && user.value.id && resv.employee_id === user.value.id){ className += ' my-reservation' }
+              }
+              else if(selection.value && s >= selection.value.start && e <= selection.value.end) className = 'selected'
+              out.push({ key: s.toISOString(), s, e, resv, className, label: `${String(s.getHours()).padStart(2,'0')}:${String(s.getMinutes()).padStart(2,'0')} - ${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}` })
+            }
+            return out
+          })
+
+          function onInstrumentChange(){ loadInstrument(); loadReservations() }
+          function prevDay(){ const d=new Date(viewDate.value); d.setDate(d.getDate()-1); viewDate.value=d; loadReservations() }
+          function nextDay(){ const d=new Date(viewDate.value); d.setDate(d.getDate()+1); viewDate.value=d; loadReservations() }
+          const canReserve = computed(()=>{
+            if(!(user.value && user.value.id) || !selection.value) return false
+            const aligned = selection.value.start.getMinutes()%slotMinutes.value===0 && selection.value.end.getMinutes()%slotMinutes.value===0
+            return aligned && selection.value.start >= new Date()
+          })
+          return { api, token, user, instruments, instrumentId, instr, reservations, viewDate, selection, reservationNotes, name, password, registerMode, slotMinutes, headers, externalLogin, loadReservations, loadInstrument, onInstrumentChange, reserve, slots, pickSlot, prevDay, nextDay, canReserve, cancelReservation, isLoaded }
+        }
+      }).mount('#app')
+    })
+  </script>
+</head>
+<body>
+  <div id="app" class="card">
+    <div class="header">外部预约入口</div>
+    <div v-if="!user">
+      <div class="row">
+        <label class="muted" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" v-model="registerMode"> 注册新用户</label>
+      </div>
+      <div class="row">
+        <input class="input" placeholder="姓名" v-model="name" />
+      </div>
+      <div class="row">
+        <input class="input" placeholder="密码" type="password" v-model="password" />
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-primary" @click="externalLogin">{{ registerMode ? '注册并登录' : '登录' }}</button>
+        <div class="muted">外部用户登录后可提交预约，审核将发送至内部群。</div>
+      </div>
+    </div>
+    <div v-else class="row" style="justify-content:space-between;">
+      <div class="muted">已登录：{{ user.name }}（外部）</div>
+      <button class="btn btn-secondary" @click="()=>{ localStorage.removeItem('token'); localStorage.removeItem('login_time'); user=null; token=''; }">退出</button>
+    </div>
+
+    <div class="toolbar" style="margin-top:12px;">
+      <button class="btn btn-secondary" @click="prevDay">◀ 前一天</button>
+      <select class="input" v-model="instrumentId" @change="onInstrumentChange" style="flex:1">
+        <option value="">请选择仪器</option>
+        <option v-for="i in instruments" :key="i.id" :value="i.id">{{ i.name }}</option>
+      </select>
+      <button class="btn btn-secondary" @click="nextDay">后一天 ▶</button>
+    </div>
+
+    <div class="slot-list">
+      <div v-for="t in slots" :key="t.key" class="slot-item" :class="t.className" @click="()=>{ if(t.resv){ if(user && user.id && t.resv.employee_id===user.id && confirm('确定取消该预约？')) cancelReservation(t.resv.id); return;} pickSlot(t.s, slotMinutes) }">
+        <div>
+          <div style="font-weight:600">{{ t.label }}</div>
+          <div v-if="t.resv" style="font-size:12px;color:#475569">
+            {{ t.resv.employee_name || '已预约' }}<span v-if="t.resv.notes">（{{ t.resv.notes }}）</span>
+          </div>
+          <div v-if="t.resv && t.resv.status==='pending'" style="font-size:11px;color:#ff9500;margin-top:2px">审核中</div>
+        </div>
+        <div>
+          <span v-if="t.resv && user && user.id && t.resv.employee_id===user.id" class="badge no">我的预约</span>
+          <span v-else-if="t.resv" class="badge no">已约</span>
+          <span v-else class="badge ok">{{ selection && selection.start && selection.start.getTime()===t.s.getTime() ? '已选' : '可约' }}</span>
+        </div>
+      </div>
+      <div v-if="slots.length===0" class="slot-item" style="justify-content:center;color:#64748b">当日暂无可预约时间段</div>
+    </div>
+
+    <div v-if="canReserve" style="margin:12px 0;">
+      <label style="display:block; margin-bottom:8px; font-weight:600;">预约备注（可选）</label>
+      <textarea v-model="reservationNotes" placeholder="请输入预约备注..." style="width:100%; min-height:60px;"></textarea>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn btn-secondary" onclick="history.length>1?history.back():(location.href='/home.html')">返回</button>
+      <button class="btn btn-primary" @click="reserve" :disabled="!canReserve">预约所选</button>
+    </div>
+  </div>
+</body>
+</html>
+
+

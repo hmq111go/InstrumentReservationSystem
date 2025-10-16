@@ -17,6 +17,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship, scoped_session
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 def create_app():
@@ -33,6 +34,7 @@ def create_app():
         "FEISHU_REDIRECT_URI",
         "http://1.13.176.116:5011/api/auth/feishu/callback"
     )
+    FEISHU_GROUP_CHAT_ID = os.getenv("FEISHU_GROUP_CHAT_ID", os.getenv("CHAT_ID", ""))
 
     # JWT configuration
     JWT_SECRET = os.getenv("JWT_SECRET", "fixed_jwt_secret_key_here_32_chars_minimum")
@@ -201,6 +203,48 @@ def create_app():
 
         return False
 
+    def send_feishu_text_to_group(text: str) -> bool:
+        """发送飞书文本消息到群聊（使用 chat_id）。"""
+        chat_id = FEISHU_GROUP_CHAT_ID
+        if not chat_id or not text:
+            return False
+
+        access_token = get_tenant_access_token()
+        if not access_token:
+            print("未获取到飞书access_token")
+            return False
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "receive_id": chat_id,
+            "msg_type": "text",
+            "content": json.dumps({"text": text}, ensure_ascii=False)
+        }
+
+        try:
+            response = requests.post(
+                f"{FEISHU_MESSAGE_URL}?receive_id_type=chat_id",
+                headers=headers,
+                json=data,
+                timeout=FEISHU_TIMEOUT
+            )
+            response.raise_for_status()
+
+            result = response.json()
+            if result.get("code") == 0:
+                return True
+            else:
+                print(f"飞书群消息发送失败: {result.get('msg', 'Unknown error')}")
+        except requests.RequestException as e:
+            print(f"飞书群消息发送网络错误: {e}")
+        except Exception as e:
+            print(f"飞书群消息发送未知错误: {e}")
+
+        return False
+
     def build_action_token(reservation_id: int, keeper_id: int, action: str, minutes_valid: int = 60) -> str:
         """构建飞书操作令牌"""
         payload = {
@@ -209,6 +253,17 @@ def create_app():
             "act": action,
             "exp": int(time.time()) + minutes_valid * 60,
             "typ": "feishu_action_v1",
+        }
+        return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+    def issue_jwt_for_user(user: "User") -> str:
+        payload = {
+            "uid": user.id,
+            "name": user.name,
+            "role": user.role,
+            "type": getattr(user, "type", "internal"),
+            "exp": int(time.time()) + 30 * 24 * 60 * 60,
+            "typ": "auth_v1",
         }
         return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -464,6 +519,9 @@ def create_app():
         feishu_open_id = Column(String(255))  # 飞书Open ID
         avatar_url = Column(String(1024))  # 头像URL
         email = Column(String(255))  # 邮箱
+
+        # 外部登录支持（避免迁移，存放在 permissions JSON 内部）
+        # permissions["password_hash"] 可用于外部用户的密码登录
 
         # 时间戳
         created_at = Column(DateTime, default=now_cn)
@@ -902,7 +960,8 @@ def create_app():
 
             try:
                 payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-                user_id = payload.get("user_id")
+                # 兼容不同签发字段：feishu 回调使用 user_id，外部用户名/密码登录使用 uid
+                user_id = payload.get("user_id") or payload.get("uid")
                 if user_id:
                     return _get_user_by_id(user_id, token)
             except jwt.InvalidTokenError:
@@ -1711,6 +1770,14 @@ def create_app():
                 reserver_display = f"{reserver.name}{note_text}"
                 send_feishu_text_to_user(reserver.feishu_user_id,
                                          f"您的仪器预约已通过：{inst.name if inst else ''}，{start_str}-{end_str}，预约人：{reserver_display}")
+            # 外部用户：发送群通知
+            if reserver and getattr(reserver, "type", "internal") == "external":
+                start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
+                end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                inst_name = inst.name if inst else "未知仪器"
+                note_text = f"（{res.notes}）" if getattr(res, "notes", None) else ""
+                send_feishu_text_to_group(
+                    f"[外部预约通过] 仪器：{inst_name} 时间：{start_str}-{end_str} 预约人：{reserver.name}{note_text}")
         except Exception:
             pass
         return jsonify(serialize_reservation(res))
@@ -1743,6 +1810,14 @@ def create_app():
                 reserver_display = f"{reserver.name}{note_text}"
                 send_feishu_text_to_user(reserver.feishu_user_id,
                                          f"您的仪器预约已被驳回：{inst.name if inst else ''}，{start_str}-{end_str}，预约人：{reserver_display}")
+            # 外部用户：发送群通知
+            if reserver and getattr(reserver, "type", "internal") == "external":
+                start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
+                end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                inst_name = inst.name if inst else "未知仪器"
+                note_text = f"（{res.notes}）" if getattr(res, "notes", None) else ""
+                send_feishu_text_to_group(
+                    f"[外部预约驳回] 仪器：{inst_name} 时间：{start_str}-{end_str} 预约人：{reserver.name}{note_text}")
         except Exception:
             pass
         return jsonify(serialize_reservation(res))
@@ -2294,6 +2369,10 @@ def create_app():
     def serve_maintenance_html():
         return send_from_directory(FRONTEND_DIR, "maintenance.html")
 
+    @app.get("/external_reserve.html")
+    def serve_external_reserve_html():
+        return send_from_directory(FRONTEND_DIR, "external_reserve.html")
+
     # 飞书OAuth认证相关API
     @app.get("/api/auth/feishu/login")
     def feishu_login():
@@ -2311,6 +2390,46 @@ def create_app():
         if do_redirect:
             return redirect(auth_url)
         return jsonify({"auth_url": auth_url})
+
+    # ===================== External Auth (username/password) =====================
+    @app.post("/api/auth/external/register")
+    def external_register():
+        data = request.get_json() or {}
+        name = (data.get("name") or "").strip()
+        password = data.get("password") or ""
+        if not name or not password:
+            return jsonify({"error": "missing_name_or_password"}), 400
+        s = get_session()
+        # 去重：同名外部用户不允许重复
+        exists = s.query(User).filter(User.name == name).first()
+        if exists:
+            return jsonify({"error": "name_exists"}), 409
+        user = User(name=name, type="external", role="user")
+        perms = user.permissions or {}
+        perms["password_hash"] = generate_password_hash(password)
+        user.permissions = perms
+        s.add(user)
+        s.commit()
+        token = issue_jwt_for_user(user)
+        return jsonify({"token": token, "user": serialize_user(user)})
+
+    @app.post("/api/auth/external/login")
+    def external_login():
+        data = request.get_json() or {}
+        name = (data.get("name") or "").strip()
+        password = data.get("password") or ""
+        if not name or not password:
+            return jsonify({"error": "missing_name_or_password"}), 400
+        s = get_session()
+        user = s.query(User).filter(User.name == name, User.type == "external").first()
+        if not user:
+            return jsonify({"error": "not_found"}), 404
+        perms = user.permissions or {}
+        pw_hash = perms.get("password_hash")
+        if not pw_hash or not check_password_hash(pw_hash, password):
+            return jsonify({"error": "invalid_credentials"}), 401
+        token = issue_jwt_for_user(user)
+        return jsonify({"token": token, "user": serialize_user(user)})
 
     @app.get("/api/auth/feishu/callback")
     def feishu_callback():
@@ -2455,7 +2574,8 @@ def create_app():
     def get_current_user_info():
         """获取当前用户信息"""
         user = get_current_user()
-        if not hasattr(user, 'feishu_user_id') or not user.feishu_user_id:
+        # 允许任意通过JWT认证的用户（内部飞书或外部用户）
+        if not hasattr(user, 'id') or not getattr(user, 'id', None):
             return jsonify({"error": "not_authenticated"}), 401
         return jsonify(serialize_user(user))
 
