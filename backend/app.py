@@ -1707,8 +1707,10 @@ def create_app():
             if reserver and reserver.feishu_user_id:
                 start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
                 end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                note_text = f"（{res.notes}）" if getattr(res, "notes", None) else ""
+                reserver_display = f"{reserver.name}{note_text}"
                 send_feishu_text_to_user(reserver.feishu_user_id,
-                                         f"您的仪器预约已通过：{inst.name if inst else ''}，{start_str}-{end_str}")
+                                         f"您的仪器预约已通过：{inst.name if inst else ''}，{start_str}-{end_str}，预约人：{reserver_display}")
         except Exception:
             pass
         return jsonify(serialize_reservation(res))
@@ -1737,8 +1739,10 @@ def create_app():
             if reserver and reserver.feishu_user_id:
                 start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
                 end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                note_text = f"（{res.notes}）" if getattr(res, "notes", None) else ""
+                reserver_display = f"{reserver.name}{note_text}"
                 send_feishu_text_to_user(reserver.feishu_user_id,
-                                         f"您的仪器预约已被驳回：{inst.name if inst else ''}，{start_str}-{end_str}")
+                                         f"您的仪器预约已被驳回：{inst.name if inst else ''}，{start_str}-{end_str}，预约人：{reserver_display}")
         except Exception:
             pass
         return jsonify(serialize_reservation(res))
@@ -1816,9 +1820,11 @@ def create_app():
                     if reserver and reserver.feishu_user_id:
                         start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
                         end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                        note_text = f"（{res.notes}）" if getattr(res, "notes", None) else ""
+                        reserver_display = f"{reserver.name}{note_text}"
                         msg = (
-                            f"您的仪器预约已通过：{inst.name}，{start_str}-{end_str}" if res.status == "approved"
-                            else f"您的仪器预约已被驳回：{inst.name}，{start_str}-{end_str}"
+                            f"您的仪器预约已通过：{inst.name}，{start_str}-{end_str}，预约人：{reserver_display}" if res.status == "approved"
+                            else f"您的仪器预约已被驳回：{inst.name}，{start_str}-{end_str}，预约人：{reserver_display}"
                         )
                         send_feishu_text_to_user(reserver.feishu_user_id, msg)
                 except Exception:
@@ -1891,9 +1897,11 @@ def create_app():
                 if reserver and reserver.feishu_user_id:
                     start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
                     end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                    note_text = f"（{res.notes}）" if getattr(res, "notes", None) else ""
+                    reserver_display = f"{reserver.name}{note_text}"
                     msg = (
-                        f"您的仪器预约已通过：{inst.name}，{start_str}-{end_str}" if res.status == "approved"
-                        else f"您的仪器预约已被驳回：{inst.name}，{start_str}-{end_str}"
+                        f"您的仪器预约已通过：{inst.name}，{start_str}-{end_str}，预约人：{reserver_display}" if res.status == "approved"
+                        else f"您的仪器预约已被驳回：{inst.name}，{start_str}-{end_str}，预约人：{reserver_display}"
                     )
                     send_feishu_text_to_user(reserver.feishu_user_id, msg)
             except Exception:
