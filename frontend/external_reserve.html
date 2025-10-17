@@ -206,24 +206,18 @@
             
             // 处理可预约时间段的点击
             const s=slot.s, e=slot.e
-            console.log('点击时间段:', s.toLocaleTimeString(), '-', e.toLocaleTimeString())
-            console.log('当前选择:', selection.value)
             
             if(!selection.value) {
               selection.value={start:s,end:e}
-              console.log('首次选择:', selection.value)
             }
             else if(e.getTime()===selection.value.start.getTime()) {
               selection.value.start=s
-              console.log('扩展开始时间:', selection.value)
             }
             else if(s.getTime()===selection.value.end.getTime()) {
               selection.value.end=e
-              console.log('扩展结束时间:', selection.value)
             }
             else {
               selection.value={start:s,end:e}
-              console.log('重新选择:', selection.value)
             }
           }
 
@@ -285,7 +279,7 @@
                 className = 'booked'
                 if(user.value && user.value.id && resv.employee_id === user.value.id){ className += ' my-reservation' }
               }
-              else if(selection.value && s >= selection.value.start && e <= selection.value.end) {
+              else if(selection.value && s.getTime() >= selection.value.start.getTime() && e.getTime() <= selection.value.end.getTime()) {
                 className = 'selected'
               }
               out.push({ key: s.toISOString(), s, e, resv, className, label: `${String(s.getHours()).padStart(2,'0')}:${String(s.getMinutes()).padStart(2,'0')} - ${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}` })
