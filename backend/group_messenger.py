@@ -1,7 +1,8 @@
-import os
 import json
-import requests
+import os
 from typing import Dict, Any, Tuple
+
+import requests
 
 
 def get_tenant_access_token(app_id: str, app_secret: str) -> Tuple[str, Exception]:
@@ -83,9 +84,12 @@ def send_group_text_via_env(text: str) -> bool:
     """使用环境变量 APP_ID/APP_SECRET/CHAT_ID 直接向群里发送文本消息。
     供简单脚本或后端调用。
     """
-    app_id = os.getenv("APP_ID") or os.getenv("FEISHU_APP_ID")
-    app_secret = os.getenv("APP_SECRET") or os.getenv("FEISHU_APP_SECRET")
-    chat_id = os.getenv("CHAT_ID") or os.getenv("FEISHU_GROUP_CHAT_ID")
+    app_id = os.getenv("FEISHU_APP_ID", "cli_a84d36f557729013")
+    app_secret = os.getenv("FEISHU_APP_SECRET", "ZebTrPQlsZKHOA2nJeAv0gjvotAqOiGf")
+    #
+    # app_id = os.getenv("APP_ID") or os.getenv("FEISHU_APP_ID")
+    # app_secret = os.getenv("APP_SECRET") or os.getenv("FEISHU_APP_SECRET")
+    chat_id = os.getenv("CHAT_ID", "oc_fddda12d48d3b4007c9494214ea2c0fb")
     if not app_id or not app_secret or not chat_id:
         return False
     token, err = get_tenant_access_token(app_id, app_secret)
@@ -93,6 +97,3 @@ def send_group_text_via_env(text: str) -> bool:
         return False
     _, err2 = send_message_to_chat(token, chat_id, text)
     return err2 is None
-
-
-

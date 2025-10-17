@@ -1902,6 +1902,17 @@ def create_app():
                             else f"您的仪器预约已被驳回：{inst.name}，{start_str}-{end_str}，预约人：{reserver_display}"
                         )
                         send_feishu_text_to_user(reserver.feishu_user_id, msg)
+                    # 外部用户：发送群通知
+                    if reserver and getattr(reserver, "type", "internal") == "external":
+                        start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
+                        end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                        inst_name = inst.name if inst else "未知仪器"
+                        note_text = f"（{res.notes}）" if getattr(res, "notes", None) else ""
+                        send_feishu_text_to_group(
+                            (f"[外部预约通过] 仪器：{inst_name} 时间：{start_str}-{end_str} 预约人：{reserver.name}{note_text}"
+                             if res.status == "approved"
+                             else f"[外部预约驳回] 仪器：{inst_name} 时间：{start_str}-{end_str} 预约人：{reserver.name}{note_text}")
+                        )
                 except Exception:
                     pass
 
@@ -1979,6 +1990,17 @@ def create_app():
                         else f"您的仪器预约已被驳回：{inst.name}，{start_str}-{end_str}，预约人：{reserver_display}"
                     )
                     send_feishu_text_to_user(reserver.feishu_user_id, msg)
+                # 外部用户：发送群通知
+                if reserver and getattr(reserver, "type", "internal") == "external":
+                    start_str = res.start_time.strftime("%Y-%m-%d %H:%M")
+                    end_str = res.end_time.strftime("%Y-%m-%d %H:%M")
+                    inst_name = inst.name if inst else "未知仪器"
+                    note_text = f"（{res.notes}）" if getattr(res, "notes", None) else ""
+                    send_feishu_text_to_group(
+                        (f"[外部预约通过] 仪器：{inst_name} 时间：{start_str}-{end_str} 预约人：{reserver.name}{note_text}"
+                         if res.status == "approved"
+                         else f"[外部预约驳回] 仪器：{inst_name} 时间：{start_str}-{end_str} 预约人：{reserver.name}{note_text}")
+                    )
             except Exception:
                 pass
             # 返回JSON响应，包含操作结果
