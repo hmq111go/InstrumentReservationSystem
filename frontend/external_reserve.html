@@ -184,10 +184,29 @@
             reservations.value = r.data.items || r.data
           }
 
-          function pickSlot(base, minutes){
-            const start = new Date(base)
-            const end = new Date(base); end.setMinutes(end.getMinutes()+minutes)
-            selection.value = { start, end }
+          function clickSlot(slot){ 
+            // 如果时间段已被预约，检查是否是当前用户的预约
+            if(slot.resv) {
+              if(user.value && user.value.id && slot.resv.employee_id === user.value.id) {
+                // 是当前用户的预约，显示取消确认对话框
+                const startTime = new Date(slot.resv.start_time)
+                const endTime = new Date(slot.resv.end_time)
+                const fullTimeRange = `${String(startTime.getHours()).padStart(2,'0')}:${String(startTime.getMinutes()).padStart(2,'0')} - ${String(endTime.getHours()).padStart(2,'0')}:${String(endTime.getMinutes()).padStart(2,'0')}`
+                
+                const noteText = (slot.resv.notes && String(slot.resv.notes).trim()) ? `（${slot.resv.notes}）` : ''
+                if(confirm(`确定要取消预约吗？\n时间：${fullTimeRange}\n预约人：${slot.resv.employee_name}${noteText}`)) {
+                  cancelReservation(slot.resv.id)
+                }
+              }
+              return
+            }
+            
+            // 处理可预约时间段的点击
+            const s=slot.s, e=slot.e
+            if(!selection.value) selection.value={start:s,end:e}
+            else if(e.getTime()===selection.value.start.getTime()) selection.value.start=s
+            else if(s.getTime()===selection.value.end.getTime()) selection.value.end=e
+            else selection.value={start:s,end:e}
           }
 
           async function reserve(){
@@ -262,7 +281,7 @@
             const aligned = selection.value.start.getMinutes()%slotMinutes.value===0 && selection.value.end.getMinutes()%slotMinutes.value===0
             return aligned && selection.value.start >= new Date()
           })
-          return { api, token, user, instruments, instrumentId, instr, reservations, viewDate, selection, reservationNotes, name, password, registerMode, slotMinutes, headers, externalLogin, loadReservations, loadInstrument, onInstrumentChange, reserve, slots, pickSlot, prevDay, nextDay, canReserve, cancelReservation, isLoaded }
+          return { api, token, user, instruments, instrumentId, instr, reservations, viewDate, selection, reservationNotes, name, password, registerMode, slotMinutes, headers, externalLogin, loadReservations, loadInstrument, onInstrumentChange, reserve, slots, clickSlot, prevDay, nextDay, canReserve, cancelReservation, isLoaded }
         }
       }).mount('#app')
     })
@@ -301,7 +320,7 @@
     </div>
 
     <div class="slot-list">
-      <div v-for="t in slots" :key="t.key" class="slot-item" :class="t.className" @click="()=>{ if(t.resv){ if(user && user.id && t.resv.employee_id===user.id && confirm('确定取消该预约？')) cancelReservation(t.resv.id); return;} pickSlot(t.s, slotMinutes) }">
+      <div v-for="t in slots" :key="t.key" class="slot-item" :class="t.className" @click="clickSlot(t)">
         <div>
           <div style="font-weight:600">{{ t.label }}</div>
           <div v-if="t.resv" style="font-size:12px;color:#475569">
