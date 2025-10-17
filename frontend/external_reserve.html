@@ -122,6 +122,8 @@
           const token = ref(localStorage.getItem('token')||'')
           const user = ref(null)
           const instruments = ref([])
+          const filteredInstruments = ref([])
+          const searchQuery = ref('')
           const instrumentId = ref('')
           const instr = ref(null)
           const reservations = ref([])
@@ -165,6 +167,7 @@
           async function loadInstruments(){
             const r = await axios.get(`${api.value}/api/instruments`)
             instruments.value = r.data
+            filteredInstruments.value = r.data
           }
           async function loadInstrument(){
             if(!instrumentId.value) { instr.value=null; return }
@@ -203,10 +206,25 @@
             
             // 处理可预约时间段的点击
             const s=slot.s, e=slot.e
-            if(!selection.value) selection.value={start:s,end:e}
-            else if(e.getTime()===selection.value.start.getTime()) selection.value.start=s
-            else if(s.getTime()===selection.value.end.getTime()) selection.value.end=e
-            else selection.value={start:s,end:e}
+            console.log('点击时间段:', s.toLocaleTimeString(), '-', e.toLocaleTimeString())
+            console.log('当前选择:', selection.value)
+            
+            if(!selection.value) {
+              selection.value={start:s,end:e}
+              console.log('首次选择:', selection.value)
+            }
+            else if(e.getTime()===selection.value.start.getTime()) {
+              selection.value.start=s
+              console.log('扩展开始时间:', selection.value)
+            }
+            else if(s.getTime()===selection.value.end.getTime()) {
+              selection.value.end=e
+              console.log('扩展结束时间:', selection.value)
+            }
+            else {
+              selection.value={start:s,end:e}
+              console.log('重新选择:', selection.value)
+            }
           }
 
           async function reserve(){
@@ -267,7 +285,9 @@
                 className = 'booked'
                 if(user.value && user.value.id && resv.employee_id === user.value.id){ className += ' my-reservation' }
               }
-              else if(selection.value && s >= selection.value.start && e <= selection.value.end) className = 'selected'
+              else if(selection.value && s >= selection.value.start && e <= selection.value.end) {
+                className = 'selected'
+              }
               out.push({ key: s.toISOString(), s, e, resv, className, label: `${String(s.getHours()).padStart(2,'0')}:${String(s.getMinutes()).padStart(2,'0')} - ${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}` })
             }
             return out
@@ -276,12 +296,27 @@
           function onInstrumentChange(){ loadInstrument(); loadReservations() }
           function prevDay(){ const d=new Date(viewDate.value); d.setDate(d.getDate()-1); viewDate.value=d; loadReservations() }
           function nextDay(){ const d=new Date(viewDate.value); d.setDate(d.getDate()+1); viewDate.value=d; loadReservations() }
+          
+          function searchInstruments(){
+            if(!searchQuery.value.trim()){
+              filteredInstruments.value = instruments.value
+            } else {
+              const query = searchQuery.value.toLowerCase()
+              filteredInstruments.value = instruments.value.filter(inst => 
+                inst.name.toLowerCase().includes(query) ||
+                (inst.model && inst.model.toLowerCase().includes(query)) ||
+                (inst.brand && inst.brand.toLowerCase().includes(query)) ||
+                (inst.category && inst.category.toLowerCase().includes(query)) ||
+                (inst.location && inst.location.toLowerCase().includes(query))
+              )
+            }
+          }
           const canReserve = computed(()=>{
             if(!(user.value && user.value.id) || !selection.value) return false
             const aligned = selection.value.start.getMinutes()%slotMinutes.value===0 && selection.value.end.getMinutes()%slotMinutes.value===0
             return aligned && selection.value.start >= new Date()
           })
-          return { api, token, user, instruments, instrumentId, instr, reservations, viewDate, selection, reservationNotes, name, password, registerMode, slotMinutes, headers, externalLogin, loadReservations, loadInstrument, onInstrumentChange, reserve, slots, clickSlot, prevDay, nextDay, canReserve, cancelReservation, isLoaded }
+          return { api, token, user, instruments, filteredInstruments, searchQuery, instrumentId, instr, reservations, viewDate, selection, reservationNotes, name, password, registerMode, slotMinutes, headers, externalLogin, loadReservations, loadInstrument, onInstrumentChange, reserve, slots, clickSlot, prevDay, nextDay, canReserve, cancelReservation, searchInstruments, isLoaded }
         }
       }).mount('#app')
     })
@@ -310,13 +345,18 @@
       <button class="btn btn-secondary" @click="()=>{ localStorage.removeItem('token'); localStorage.removeItem('login_time'); user=null; token=''; }">退出</button>
     </div>
 
-    <div class="toolbar" style="margin-top:12px;">
-      <button class="btn btn-secondary" @click="prevDay">◀ 前一天</button>
-      <select class="input" v-model="instrumentId" @change="onInstrumentChange" style="flex:1">
-        <option value="">请选择仪器</option>
-        <option v-for="i in instruments" :key="i.id" :value="i.id">{{ i.name }}</option>
-      </select>
-      <button class="btn btn-secondary" @click="nextDay">后一天 ▶</button>
+    <div style="margin-top:12px;">
+      <div class="row">
+        <input class="input" placeholder="搜索仪器名称、型号、品牌、类别、位置..." v-model="searchQuery" @input="searchInstruments" style="flex:1" />
+      </div>
+      <div class="toolbar" style="margin-top:8px;">
+        <button class="btn btn-secondary" @click="prevDay">◀ 前一天</button>
+        <select class="input" v-model="instrumentId" @change="onInstrumentChange" style="flex:1">
+          <option value="">请选择仪器</option>
+          <option v-for="i in filteredInstruments" :key="i.id" :value="i.id">{{ i.name }}</option>
+        </select>
+        <button class="btn btn-secondary" @click="nextDay">后一天 ▶</button>
+      </div>
     </div>
 
     <div class="slot-list">
