@@ -554,7 +554,7 @@ createApp({
       }
     }
     async function del(id){
-      if(!confirm('确定删除该仪器？')) return
+      if(!confirm('确定删除该仪器？\n\n警告：删除仪器后，该仪器的所有预约记录将一并删除，此操作不可恢复，请谨慎操作！')) return
       await axios.delete(`${api}/api/instruments/${id}`, { headers: headers() })
       load()
     }
