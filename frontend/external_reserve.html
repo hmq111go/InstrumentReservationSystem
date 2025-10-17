@@ -96,6 +96,8 @@
     .slot-item.free { background: rgba(52,199,89,0.05); }
     .slot-item.free:hover { background: rgba(52,199,89,0.1); }
     .slot-item.booked { background: rgba(255,59,48,0.05); cursor: not-allowed; }
+    .slot-item.booked.my-reservation { background: rgba(255,149,0,0.1); cursor: pointer; }
+    .slot-item.booked.my-reservation:hover { background: rgba(255,149,0,0.2); }
     .slot-item.selected { background: rgba(0,122,255,0.1); border: 1px solid var(--primary); }
     .badge { font-size: 12px; padding: 4px 8px; border-radius: 12px; font-weight: 600; }
     .badge.ok { background: var(--success); color:#fff; }
@@ -128,13 +130,12 @@
           const instr = ref(null)
           const reservations = ref([])
           const viewDate = ref(new Date())
-          const selection = ref({ start: null, end: null })
+          const selection = ref(null)
           const reservationNotes = ref('')
           const name = ref('')
           const password = ref('')
           const registerMode = ref(false)
           const slotMinutes = ref(15)
-          const isLoaded = ref(false)
 
           const headers = computed(()=> token.value ? { Authorization: `Bearer ${token.value}` } : {})
 
@@ -169,12 +170,14 @@
             instruments.value = r.data
             filteredInstruments.value = r.data
           }
+          
           async function loadInstrument(){
             if(!instrumentId.value) { instr.value=null; return }
             const r = await axios.get(`${api.value}/api/instruments/${instrumentId.value}`)
             instr.value = r.data
             slotMinutes.value = Number(r.data?.slot_minutes || 15)
           }
+          
           async function loadReservations(){
             if(!instrumentId.value) return
             const d = new Date(viewDate.value)
@@ -185,6 +188,21 @@
             const end_date = `${ty}-${tm}-${td}`
             const r = await axios.get(`${api.value}/api/reservations`, { params:{ instrument_id: instrumentId.value, start_date, end_date }, headers: headers.value })
             reservations.value = r.data.items || r.data
+          }
+
+          function searchInstruments(){
+            if(!searchQuery.value.trim()){
+              filteredInstruments.value = instruments.value
+            } else {
+              const query = searchQuery.value.toLowerCase()
+              filteredInstruments.value = instruments.value.filter(inst => 
+                inst.name.toLowerCase().includes(query) ||
+                (inst.model && inst.model.toLowerCase().includes(query)) ||
+                (inst.brand && inst.brand.toLowerCase().includes(query)) ||
+                (inst.category && inst.category.toLowerCase().includes(query)) ||
+                (inst.location && inst.location.toLowerCase().includes(query))
+              )
+            }
           }
 
           function clickSlot(slot){ 
@@ -206,25 +224,15 @@
             
             // 处理可预约时间段的点击
             const s=slot.s, e=slot.e
-            
-            if(!selection.value) {
-              selection.value={start:s,end:e}
-            }
-            else if(e.getTime()===selection.value.start.getTime()) {
-              selection.value.start=s
-            }
-            else if(s.getTime()===selection.value.end.getTime()) {
-              selection.value.end=e
-            }
-            else {
-              selection.value={start:s,end:e}
-            }
+            if(!selection.value) selection.value={start:s,end:e}
+            else if(e.getTime()===selection.value.start.getTime()) selection.value.start=s
+            else if(s.getTime()===selection.value.end.getTime()) selection.value.end=e
+            else selection.value={start:s,end:e}
           }
 
           async function reserve(){
+            if(!canReserve.value) return alert('请选择可用的时间段再提交');
             if(!(user.value && user.value.id)) return alert('请先登录')
-            if(!instrumentId.value) return alert('请选择仪器')
-            if(!(selection.value && selection.value.start && selection.value.end)) return alert('请选择时间段')
             try{
               const startISO = toLocalISOString(selection.value.start)
               const endISO = toLocalISOString(selection.value.end)
@@ -235,7 +243,7 @@
                 end_time: endISO,
                 notes: reservationNotes.value
               }, { headers: headers.value })
-              selection.value = { start:null, end:null }
+              selection.value = null
               reservationNotes.value = ''
               await loadReservations()
               alert('已提交预约，等待保管员处理')
@@ -249,15 +257,16 @@
               await axios.post(`${api.value}/api/reservations/${reservationId}/cancel`, {}, { headers: headers.value })
               alert('预约已取消')
               await loadReservations()
-            }catch(e){ alert(e.response?.data?.error || '取消失败') }
+            }catch(e){ 
+              alert(e.response?.data?.error || '取消失败') 
+            }
           }
 
-          onMounted(async()=>{ await fetchMe(); await loadInstruments(); isLoaded.value=true })
+          onMounted(async()=>{ await fetchMe(); await loadInstruments(); })
 
           const slots = computed(()=>{
             const out = []
             if(!instr.value) return out
-            // 维护或暂停预约时不展示时段
             if(instr.value.current_maintenance || instr.value.status === 'maintenance' || instr.value.booking_enabled === 'false') return out
             const d = new Date(viewDate.value)
             const now = new Date()
@@ -279,9 +288,7 @@
                 className = 'booked'
                 if(user.value && user.value.id && resv.employee_id === user.value.id){ className += ' my-reservation' }
               }
-              else if(selection.value && s.getTime() >= selection.value.start.getTime() && e.getTime() <= selection.value.end.getTime()) {
-                className = 'selected'
-              }
+              else if(selection.value && s >= selection.value.start && e <= selection.value.end) className = 'selected'
               out.push({ key: s.toISOString(), s, e, resv, className, label: `${String(s.getHours()).padStart(2,'0')}:${String(s.getMinutes()).padStart(2,'0')} - ${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}` })
             }
             return out
@@ -291,26 +298,13 @@
           function prevDay(){ const d=new Date(viewDate.value); d.setDate(d.getDate()-1); viewDate.value=d; loadReservations() }
           function nextDay(){ const d=new Date(viewDate.value); d.setDate(d.getDate()+1); viewDate.value=d; loadReservations() }
           
-          function searchInstruments(){
-            if(!searchQuery.value.trim()){
-              filteredInstruments.value = instruments.value
-            } else {
-              const query = searchQuery.value.toLowerCase()
-              filteredInstruments.value = instruments.value.filter(inst => 
-                inst.name.toLowerCase().includes(query) ||
-                (inst.model && inst.model.toLowerCase().includes(query)) ||
-                (inst.brand && inst.brand.toLowerCase().includes(query)) ||
-                (inst.category && inst.category.toLowerCase().includes(query)) ||
-                (inst.location && inst.location.toLowerCase().includes(query))
-              )
-            }
-          }
           const canReserve = computed(()=>{
             if(!(user.value && user.value.id) || !selection.value) return false
             const aligned = selection.value.start.getMinutes()%slotMinutes.value===0 && selection.value.end.getMinutes()%slotMinutes.value===0
             return aligned && selection.value.start >= new Date()
           })
-          return { api, token, user, instruments, filteredInstruments, searchQuery, instrumentId, instr, reservations, viewDate, selection, reservationNotes, name, password, registerMode, slotMinutes, headers, externalLogin, loadReservations, loadInstrument, onInstrumentChange, reserve, slots, clickSlot, prevDay, nextDay, canReserve, cancelReservation, searchInstruments, isLoaded }
+          
+          return { api, token, user, instruments, filteredInstruments, searchQuery, instrumentId, instr, reservations, viewDate, selection, reservationNotes, name, password, registerMode, slotMinutes, headers, externalLogin, loadReservations, loadInstrument, onInstrumentChange, reserve, slots, clickSlot, prevDay, nextDay, canReserve, cancelReservation, searchInstruments }
         }
       }).mount('#app')
     })
@@ -383,5 +377,3 @@
   </div>
 </body>
 </html>
-
-
