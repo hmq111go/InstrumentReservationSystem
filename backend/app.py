@@ -34,7 +34,7 @@ def create_app():
         "FEISHU_REDIRECT_URI",
         "http://1.13.176.116:5011/api/auth/feishu/callback"
     )
-    FEISHU_GROUP_CHAT_ID = os.getenv("FEISHU_GROUP_CHAT_ID", os.getenv("CHAT_ID", ""))
+    FEISHU_GROUP_CHAT_ID = os.getenv("FEISHU_GROUP_CHAT_ID", "oc_fddda12d48d3b4007c9494214ea2c0fb")
 
     # JWT configuration
     JWT_SECRET = os.getenv("JWT_SECRET", "fixed_jwt_secret_key_here_32_chars_minimum")
