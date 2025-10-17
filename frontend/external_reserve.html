@@ -186,8 +186,54 @@
             const t = new Date(d); t.setDate(t.getDate()+1)
             const ty = t.getFullYear(), tm = String(t.getMonth()+1).padStart(2,'0'), td = String(t.getDate()).padStart(2,'0')
             const end_date = `${ty}-${tm}-${td}`
-            const r = await axios.get(`${api.value}/api/reservations`, { params:{ instrument_id: instrumentId.value, start_date, end_date }, headers: headers.value })
-            reservations.value = r.data.items || r.data
+            
+            // 使用两种方式获取预约数据，确保能看到所有预约
+            try {
+              // 方式1：使用仪器特定API获取该仪器的所有预约
+              const r1 = await axios.get(`${api.value}/api/instruments/${instrumentId.value}/reservations`, { headers: headers.value })
+              const instrumentReservations = r1.data || []
+              
+              // 方式2：使用常规API获取用户自己的预约
+              const r2 = await axios.get(`${api.value}/api/reservations`, { 
+                params:{ 
+                  instrument_id: instrumentId.value, 
+                  start_date, 
+                  end_date 
+                }, 
+                headers: headers.value 
+              })
+              const userReservations = r2.data.items || r2.data || []
+              
+              // 合并两种数据，去重
+              const allReservations = [...instrumentReservations]
+              // 添加用户自己的预约（如果不存在）
+              userReservations.forEach(ur => {
+                if (!allReservations.some(r => r.id === ur.id)) {
+                  allReservations.push(ur)
+                }
+              })
+              
+              // 按开始时间排序
+              allReservations.sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+              reservations.value = allReservations
+            } catch (error) {
+              console.error('加载预约数据失败', error)
+              // 如果出错，尝试使用常规方式
+              try {
+                const r = await axios.get(`${api.value}/api/reservations`, { 
+                  params:{ 
+                    instrument_id: instrumentId.value, 
+                    start_date, 
+                    end_date 
+                  }, 
+                  headers: headers.value 
+                })
+                reservations.value = r.data.items || r.data || []
+              } catch (e) {
+                console.error('备用加载预约数据也失败', e)
+                reservations.value = []
+              }
+            }
           }
 
           function searchInstruments(){
