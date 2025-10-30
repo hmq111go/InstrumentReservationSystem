@@ -2905,9 +2905,22 @@ def create_app():
         # 尝试加载系统字体，失败则用默认字体
         try:
             font_path_candidates = [
+                # macOS 中文字体
                 "/System/Library/Fonts/Supplemental/PingFang.ttc",
                 "/System/Library/Fonts/PingFang.ttc",
+                "/System/Library/Fonts/Hiragino Sans GB.ttc",
+                "/System/Library/Fonts/STHeiti Light.ttc",
+                "/System/Library/Fonts/STHeiti Medium.ttc",
                 "/Library/Fonts/Arial Unicode.ttf",
+                # Windows 中文字体
+                "C:/Windows/Fonts/simhei.ttf",
+                "C:/Windows/Fonts/simsun.ttc",
+                "C:/Windows/Fonts/msyh.ttc",
+                "C:/Windows/Fonts/msyhbd.ttc",
+                # Linux 中文字体
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
             ]
             used_font = None
             for fp in font_path_candidates:
@@ -2918,21 +2931,41 @@ def create_app():
                     except Exception:
                         pass
             if not used_font:
-                used_font = ImageFont.load_default()
+                # 尝试使用PIL内置的默认字体，但设置更大的字号
+                try:
+                    used_font = ImageFont.load_default()
+                except Exception:
+                    # 最后的兜底方案
+                    used_font = None
         except Exception:
-            used_font = ImageFont.load_default()
+            used_font = None
 
         instrument_name = (instrument.name or "").strip() or f"Instrument {instrument.id}"
         # 计算文本居中位置
         try:
-            bbox = draw.textbbox((0, 0), instrument_name, font=used_font)
-            text_width = (bbox[2] - bbox[0]) if bbox else 0
+            if used_font:
+                bbox = draw.textbbox((0, 0), instrument_name, font=used_font)
+                text_width = (bbox[2] - bbox[0]) if bbox else 0
+            else:
+                # 没有字体时的估算
+                text_width = min(width, len(instrument_name) * 12)
         except Exception:
             # Fallback measurement
-            text_width = min(width, len(instrument_name) * 10)
+            text_width = min(width, len(instrument_name) * 12)
         text_x = max(0, (width - text_width) // 2)
         text_y = height + (padding // 2)
-        draw.text((text_x, text_y), instrument_name, fill=(0, 0, 0), font=used_font)
+        
+        # 绘制文本，如果没有字体则使用默认字体
+        try:
+            draw.text((text_x, text_y), instrument_name, fill=(0, 0, 0), font=used_font)
+        except Exception:
+            # 如果字体绘制失败，尝试不使用字体参数
+            try:
+                draw.text((text_x, text_y), instrument_name, fill=(0, 0, 0))
+            except Exception:
+                # 最后的兜底：绘制ASCII版本
+                ascii_name = instrument_name.encode('ascii', 'ignore').decode('ascii') or f"Instrument {instrument.id}"
+                draw.text((text_x, text_y), ascii_name, fill=(0, 0, 0))
 
         # 保存文件
         filename = f"instrument_{instrument.id}_qr.png"
