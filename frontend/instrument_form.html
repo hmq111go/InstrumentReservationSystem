@@ -530,7 +530,27 @@
         setup() {
             const api = localStorage.getItem('API') || ''
             const id = Number(new URLSearchParams(location.search).get('id') || '') || null
-            const m = ref({name: '', quantity: 1, slot_minutes: 15})
+            const m = ref({
+                name: '', 
+                quantity: 1, 
+                slot_minutes: 15,
+                // 管理信息字段初始化
+                vendor_company: '',
+                production_date: '',
+                start_use_date: '',
+                warranty_years: null,
+                warranty_company: '',
+                admin_notes: '',
+                // 仪器状态字段初始化
+                status: 'active',
+                booking_enabled: 'true',
+                requires_approval: 'false',
+                booking_start_time: '',
+                booking_end_time: '',
+                // 其他字段
+                keeper_id: null,
+                notes: ''
+            })
             const token = localStorage.getItem('token')
             const headers = token ? {'Authorization': `Bearer ${token}`} : {}
             const user = ref({})
