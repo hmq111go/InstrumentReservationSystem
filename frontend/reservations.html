@@ -350,7 +350,7 @@
           <span class="label">仪器名称</span>
           <div class="control cu-control cu-select">
             <select v-model="instrumentId" :class="{placeholder: instrumentId===''}">
-              <option value="">选择仪器…</option>
+              <option value="">选择仪器名称…</option>
               <option v-for="i in instruments" :value="i.id">{{ i.name }}</option>
             </select>
           </div>
@@ -393,7 +393,7 @@
       </div>
       <div style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 8px 0;">提示：默认不显示已取消的记录;筛选条件需点击查询生效</div>
       <table>
-        <thead><tr><th>仪器</th><th>开始</th><th>结束</th><th>预约人</th><th>备注</th><th>预约</th><th style="text-align: center;">操作</th></tr></thead>
+        <thead><tr><th>仪器名称</th><th>开始</th><th>结束</th><th>预约人</th><th>备注</th><th>预约状态</th><th style="text-align: center;">操作</th></tr></thead>
         <tbody>
           <tr v-for="r in filtered" :key="r.id">
             <td><span class="chip chip-primary">{{ r.instrument_name }}</span></td>
@@ -654,11 +654,11 @@ createApp({
           'rejected': '已驳回',
           'cancelled': '已取消'
         }[status.value] || status.value
-        conditions.push(`状态: ${statusText}`)
+        conditions.push(`预约状态: ${statusText}`)
       } else if (status.value === '__all__') {
-        conditions.push('状态: 全部')
+        conditions.push('预约状态: 全部')
       } else {
-        conditions.push('状态: 默认（不显示已取消）')
+        conditions.push('预约状态: 默认（不显示已取消）')
       }
       if (startDate.value) conditions.push(`开始日期: ${startDate.value}`)
       if (endDate.value) conditions.push(`结束日期: ${endDate.value}`)
