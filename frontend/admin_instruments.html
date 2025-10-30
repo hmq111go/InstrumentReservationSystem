@@ -368,6 +368,9 @@
           <div class="control" style="display: flex; gap: 8px;">
             <button class="btn btn-secondary" type="button" onclick="history.back()" style="height: 36px; font-size: 14px; padding: 0 12px;">← 返回</button>
             <a class="btn btn-primary" href="instrument_form.html" style="height: 36px; font-size: 14px; padding: 0 12px;">+ 添加仪器</a>
+            <button class="btn btn-success" @click="exportInstruments" :disabled="exportLoading" style="height: 36px; font-size: 14px; padding: 0 12px;">
+              {{ exportLoading ? '导出中...' : '📊 导出' }}
+            </button>
           </div>
         </div>
         <div class="field" style="flex: 0 0 auto;">
@@ -471,6 +474,7 @@ createApp({
     const currentPageNum = ref(1)
     const pageSize = ref(10)
     const searchQuery = ref('')
+    const exportLoading = ref(false)
     let token = localStorage.getItem('token')
     const headers = () => token ? { 'Authorization': `Bearer ${token}` } : {}
     
@@ -605,9 +609,59 @@ createApp({
       return 'gray'
     }
 
+    // 导出仪器功能
+    async function exportInstruments() {
+      if (!confirm('确定要导出仪器列表吗？')) return
+      
+      exportLoading.value = true
+      try {
+        // 检测是否在飞书环境中
+        const isFeishu = /Lark|Feishu/i.test(navigator.userAgent || '')
+        
+        if (isFeishu) {
+          // 在飞书环境中，直接打开下载链接
+          const downloadUrl = `${api}/api/instruments/export`
+          const token = localStorage.getItem('token')
+          if (token) {
+            // 将token添加到URL参数中，因为飞书环境可能无法发送Authorization header
+            const urlWithToken = `${downloadUrl}?token=${token}`
+            window.open(urlWithToken, '_blank')
+          } else {
+            window.open(downloadUrl, '_blank')
+          }
+        } else {
+          // 非飞书环境，使用原来的下载方式
+          const response = await axios.get(`${api}/api/instruments/export`, {
+            headers: headers(),
+            responseType: 'blob'
+          })
+          
+          // 创建下载链接
+          const url = window.URL.createObjectURL(new Blob([response.data]))
+          const link = document.createElement('a')
+          link.href = url
+          
+          // 生成文件名
+          const now = new Date()
+          const dateStr = now.toISOString().split('T')[0]
+          link.setAttribute('download', `仪器列表_${dateStr}.xlsx`)
+          
+          document.body.appendChild(link)
+          link.click()
+          link.remove()
+          window.URL.revokeObjectURL(url)
+        }
+      } catch (error) {
+        console.error('导出失败:', error)
+        alert('导出失败: ' + (error.response?.data?.error || error.message))
+      } finally {
+        exportLoading.value = false
+      }
+    }
+
     return { 
-      user, instruments, pagination, currentPageNum, pageSize, searchQuery, visiblePages,
-      del, goToPage, search, onPageSizeChange, openQRCode, statusText, statusBadgeClass,
+      user, instruments, pagination, currentPageNum, pageSize, searchQuery, exportLoading, visiblePages,
+      del, goToPage, search, onPageSizeChange, openQRCode, statusText, statusBadgeClass, exportInstruments,
       isManagerOrAdmin, isSuperAdmin, isKeeper, isActive
     }
   }
