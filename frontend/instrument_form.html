@@ -570,7 +570,34 @@
                 if (!id) return
                 const {data} = await axios.get(`${api}/api/instruments/${id}`)
                 const found = data
-                if (found) m.value = found
+                if (found) {
+                    // 规范化后端返回以适配前端控件
+                    const toDateInput = (v) => {
+                        if (!v) return ''
+                        // 支持 "YYYY-MM-DD" 或 ISO 字符串
+                        try {
+                            if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+                            const d = new Date(v)
+                            if (isNaN(d.getTime())) return ''
+                            const yyyy = d.getFullYear()
+                            const mm = String(d.getMonth() + 1).padStart(2, '0')
+                            const dd = String(d.getDate()).padStart(2, '0')
+                            return `${yyyy}-${mm}-${dd}`
+                        } catch (e) {
+                            return ''
+                        }
+                    }
+
+                    // 将布尔转换为选择框使用的字符串
+                    found.booking_enabled = String(found.booking_enabled)
+                    found.requires_approval = String(found.requires_approval)
+
+                    // 日期转成 input[type=date] 需要的值
+                    found.production_date = toDateInput(found.production_date)
+                    found.start_use_date = toDateInput(found.start_use_date)
+
+                    m.value = found
+                }
             }
 
             async function loadKeepers() {
@@ -733,25 +760,80 @@
             }
 
             async function save() {
-                if (id) {
-                    // 先保存可编辑字段
-                    const {keeper_id, ...rest} = m.value
-                    await axios.put(`${api}/api/instruments/${id}`, rest, {headers})
-                    // 管理员可通过专门接口更新保管员
-                    if (canSeeAdmin.value) {
-                        await axios.put(`${api}/api/instruments/${id}/keeper`, {keeper_id: keeper_id || null}, {headers})
+                // 基础校验与规范化
+                const model = {...m.value}
+
+                // 必填项校验
+                if (!model.name || String(model.name).trim() === '') {
+                    alert('请填写仪器名称')
+                    return
+                }
+
+                // 数字与布尔规范化
+                model.quantity = Number(model.quantity || 0)
+                if (!Number.isFinite(model.quantity) || model.quantity < 1) {
+                    alert('数量必须是不小于 1 的数字')
+                    return
+                }
+
+                model.slot_minutes = Number(model.slot_minutes || 0)
+                if (!Number.isFinite(model.slot_minutes) || model.slot_minutes < 5) {
+                    alert('预约刻度必须是不小于 5 的数字')
+                    return
+                }
+
+                // 将选择框的字符串 'true'/'false' 转为布尔
+                const strToBool = (v) => String(v) === 'true'
+                model.booking_enabled = strToBool(model.booking_enabled)
+                model.requires_approval = strToBool(model.requires_approval)
+
+                // 当允许预约时，预约开始/结束时间需要填写且有效
+                if (model.booking_enabled) {
+                    if (!model.booking_start_time || !model.booking_end_time) {
+                        alert('请填写预约开始/结束时间')
+                        return
                     }
-                } else {
-                    // 创建时允许直接提交全部字段（后端会校验权限）
-                    const created = await axios.post(`${api}/api/instruments`, m.value, {headers})
-                    // 若选择了保管员，且当前是管理员，则调用分配接口确保一致
-                    if (canSeeAdmin.value && m.value.keeper_id) {
-                        const newId = created.data.id
-                        await axios.put(`${api}/api/instruments/${newId}/keeper`, {keeper_id: m.value.keeper_id}, {headers})
+                    // 简单校验：开始时间需早于结束时间（字符串比较对 HH:MM 可用）
+                    if (model.booking_start_time >= model.booking_end_time) {
+                        alert('预约开始时间必须早于结束时间')
+                        return
                     }
                 }
-                alert('已保存')
-                goBack()
+
+                // 日期：空字符串传 null；否则保持 YYYY-MM-DD 由后端解析
+                model.production_date = model.production_date ? model.production_date : null
+                model.start_use_date = model.start_use_date ? model.start_use_date : null
+
+                // 数字可空
+                model.warranty_years = (model.warranty_years === '' || model.warranty_years === null || typeof model.warranty_years === 'undefined')
+                    ? null
+                    : Number(model.warranty_years)
+
+                try {
+                    if (id) {
+                        // 先保存可编辑字段（排除 keeper_id 走专门接口）
+                        const {keeper_id, ...rest} = model
+                        await axios.put(`${api}/api/instruments/${id}`, rest, {headers})
+                        // 管理员可通过专门接口更新保管员
+                        if (canSeeAdmin.value) {
+                            const keeperPayload = {keeper_id: keeper_id ? Number(keeper_id) : null}
+                            await axios.put(`${api}/api/instruments/${id}/keeper`, keeperPayload, {headers})
+                        }
+                    } else {
+                        // 创建：直接提交，后端会做权限和类型处理
+                        const created = await axios.post(`${api}/api/instruments`, model, {headers})
+                        if (canSeeAdmin.value && model.keeper_id) {
+                            const newId = created.data.id
+                            const keeperPayload = {keeper_id: Number(model.keeper_id)}
+                            await axios.put(`${api}/api/instruments/${newId}/keeper`, keeperPayload, {headers})
+                        }
+                    }
+                    alert('已保存')
+                    goBack()
+                } catch (e) {
+                    const msg = e.response?.data?.error || e.message
+                    alert('保存失败：' + msg)
+                }
             }
 
             axios.get(`${api}/api/auth/me`, {headers}).then(r => user.value = r.data).catch(() => {
