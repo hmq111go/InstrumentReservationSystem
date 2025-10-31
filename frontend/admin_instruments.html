@@ -368,9 +368,6 @@
           <div class="control" style="display: flex; gap: 8px;">
             <button class="btn btn-secondary" type="button" onclick="history.back()" style="height: 36px; font-size: 14px; padding: 0 12px;">← 返回</button>
             <a class="btn btn-primary" href="instrument_form.html" style="height: 36px; font-size: 14px; padding: 0 12px;">+ 添加仪器</a>
-            <button class="btn btn-success" @click="exportInstruments" :disabled="exportLoading" style="height: 36px; font-size: 14px; padding: 0 12px;">
-              {{ exportLoading ? '导出中...' : '📊 导出' }}
-            </button>
           </div>
         </div>
         <div class="field" style="flex: 0 0 auto;">
@@ -380,6 +377,11 @@
             </div>
             <button class="btn btn-primary btn-compact" @click="search">搜索</button>
           </div>
+        </div>
+        <div class="field" style="flex: 1 1 auto; display:flex; align-items:flex-end; justify-content:flex-end;">
+          <button class="btn btn-success" @click="exportInstruments" :disabled="exportLoading" style="height: 36px; font-size: 14px; padding: 0 12px;">
+            {{ exportLoading ? '导出中...' : '📊 导出' }}
+          </button>
         </div>
       </div>
       <table style="width:100%; border-collapse:collapse; table-layout:fixed">
