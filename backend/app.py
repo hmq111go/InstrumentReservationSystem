@@ -1319,11 +1319,49 @@ def create_app():
         s = get_session()
         items = s.query(Instrument).all()
         df = pd.DataFrame([serialize_instrument(i) for i in items])
+        # 重命名列为中文表头
+        column_map = {
+            "id": "ID",
+            "name": "仪器名称",
+            "slot_minutes": "预约刻度(分钟)",
+            "asset_code": "资产编号",
+            "factory_code": "出厂编号",
+            "model": "型号",
+            "brand": "品牌",
+            "category": "分类",
+            "quantity": "数量",
+            "location": "存放位置",
+            "keeper_unit": "保管单位",
+            "keeper_name": "保管员",
+            "keeper_phone": "保管员电话",
+            "purpose": "用途",
+            "notes": "备注",
+            "booking_notes": "预约备注",
+            "status": "状态",
+            "keeper_id": "保管员ID",
+            "requires_approval": "需要审批",
+            "booking_enabled": "允许预约",
+            "booking_start_time": "预约开始时间",
+            "booking_end_time": "预约结束时间",
+            "vendor_company": "销售公司",
+            "price": "价格",
+            "production_date": "生产时间",
+            "start_use_date": "投用时间",
+            "warranty_years": "保修年限",
+            "warranty_company": "保修公司",
+            "admin_notes": "管理员备注",
+            "photo_url": "照片链接",
+            "qrcode_url": "二维码链接",
+            "current_maintenance": "当前维护信息",
+        }
+        df.rename(columns=column_map, inplace=True)
         bio = BytesIO()
         df.to_excel(bio, index=False)
         bio.seek(0)
+        from datetime import datetime
+        filename = f"仪器列表_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         return send_file(bio, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                         as_attachment=True, download_name="instruments.xlsx")
+                         as_attachment=True, download_name=filename)
 
     @app.get("/api/reservations/export")
     def export_reservations():
