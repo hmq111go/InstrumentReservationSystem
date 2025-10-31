@@ -2921,6 +2921,7 @@ def create_app():
                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
                 "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
                 "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc"
             ]
             used_font = None
             for fp in font_path_candidates:
