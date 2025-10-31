@@ -73,8 +73,8 @@
 
     /* Table aligned with 预约管理 */
     table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius-sm); overflow: hidden; }
-    th, td { text-align: center; padding: 16px; border-bottom: 1px solid var(--border-light); }
-    thead th { background: var(--surface-secondary); z-index: 1; font-size: 14px; color: var(--text-primary); text-transform: none; border-bottom: 1px solid var(--border); position: sticky; top: 0; }
+    th, td { text-align: center; padding: 16px; border-bottom: 1px solid var(--border-light); font-size: 16px; }
+    thead th { background: var(--surface-secondary); z-index: 1; color: var(--text-primary); text-transform: none; border-bottom: 1px solid var(--border); position: sticky; top: 0; }
     tbody tr:hover { background: var(--surface-secondary); }
     /* 操作列居中（第9列） */
     .ops-cell { text-align: center; vertical-align: middle; }
@@ -197,12 +197,12 @@
       <table v-if="records && records.length">
         <thead>
           <tr>
-            <th>仪器</th>
+            <th>仪器名称</th>
             <th>开始日期</th>
             <th>结束日期</th>
             <th>类型</th>
             <th>描述</th>
-            <th>状态</th>
+            <th>维护状态</th>
             <th>创建人</th>
             <th>创建时间</th>
             <th>操作</th>
@@ -229,7 +229,13 @@
             <td>{{ m.description }}</td>
             <td>
               <span :class="['badge', statusBadgeClass(m.status)]">{{ m.status === 'done' ? '完成' : '进行中' }}</span>
-              <button v-if="(isManagerOrAdmin || isKeeper) && m.status==='pending'" class="btn btn-secondary" style="padding:4px 8px;margin-left:8px" @click="markDone(m)">标记完成</button>
+              <button 
+                v-if="(isManagerOrAdmin || isKeeper) && m.status==='pending'" 
+                class="btn btn-success btn-compact" 
+                style="padding:4px 8px;margin-left:8px" 
+                :disabled="isUpdating(m.id)"
+                @click="markDone(m)"
+              >{{ isUpdating(m.id) ? '完成中…' : '标记完成' }}</button>
             </td>
             <td>{{ getUserName(m.created_by) }}</td>
             <td>{{ formatDate(m.created_at) }}</td>
@@ -450,12 +456,19 @@ createApp({
       window.location.href = '/login.html'
     })
 
+    const updatingMap = ref({})
+    function isUpdating(id){ return !!updatingMap.value[id] }
     async function markDone(m){
+      if (!confirm('确认将该维护记录标记为完成？')) return
+      updatingMap.value = { ...updatingMap.value, [m.id]: true }
       try {
         await axios.put(`${api}/api/maintenance/${m.id}`, { status: 'done' }, { headers: headers() })
+        alert('已标记为完成')
         loadMaintenance()
       } catch (e) {
         alert('更新失败')
+      } finally {
+        const map = { ...updatingMap.value }; delete map[m.id]; updatingMap.value = map
       }
     }
 
@@ -477,7 +490,7 @@ createApp({
     return { user, userLoaded, isManagerOrAdmin, isSuperAdmin, isKeeper, isActive,
       instruments, userMap, records, pagination, filterInstrumentId, filterType, filterStartDate, filterEndDate, visiblePages, hasActiveFilters,
       getInstrumentName, getUserName, getTypeText, typeBadgeClass, statusBadgeClass, formatDateTime, formatDate,
-      goToPage, search, refresh, clearFilters, exportMaintenance, markDone, deleteRecord,
+      goToPage, search, refresh, clearFilters, exportMaintenance, markDone, deleteRecord, isUpdating,
       showCreate, form, openCreate, cancel, save }
   }
 }).mount('#app')
