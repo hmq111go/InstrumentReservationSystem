@@ -145,7 +145,7 @@
       transform: translateY(-1px);
     }
 
-    /* 状态徽章与信息块，匹配我的预约 */
+    /* 预约状态徽章与信息块，匹配我的预约 */
     .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 15px; font-weight: 700; }
     .badge-pending { background: #FFF7ED; color: #B45309; }
     .badge-approved { background: #ECFDF5; color: #047857; }
@@ -321,16 +321,16 @@
     <div class="card">
       <div class="toolbar">
         <div class="field" style="min-width:160px; max-width: 200px; flex: 0 0 180px;">
-          <span class="label">仪器</span>
+          <span class="label">仪器名称</span>
           <div class="control cu-control cu-select">
             <select v-model="instrumentId" :class="{placeholder: instrumentId===''}">
-              <option value="">选择仪器…</option>
+              <option value="">选择仪器名称…</option>
               <option v-for="i in instruments" :value="i.id">{{ i.name }}</option>
             </select>
           </div>
         </div>
         <div class="field" style="flex: 0 0 140px; min-width: 120px; max-width: 160px;">
-          <span class="label">状态</span>
+          <span class="label">预约状态</span>
           <div class="control cu-control cu-select">
             <select v-model="status">
               <option value="pending">待审批</option>
@@ -361,7 +361,7 @@
       </div>
       <div style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 8px 0;">提示：默认显示待审批记录；筛选条件需点击查询生效</div>
       <table>
-        <thead><tr><th>仪器</th><th>开始</th><th>结束</th><th>预约人</th><th>状态</th><th>操作</th></tr></thead>
+        <thead><tr><th>仪器名称</th><th>开始时间</th><th>结束时间</th><th>预约人</th><th>预约状态</th><th>操作</th></tr></thead>
         <tbody>
           <tr v-for="r in filtered" :key="r.id">
             <td><span class="chip chip-primary">{{ r.instrument_name }}</span></td>
