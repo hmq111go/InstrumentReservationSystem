@@ -275,7 +275,7 @@
         </header>
         <div class="content">
           <div class="form" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <label><span>仪器</span>
+            <label><span>仪器名称</span>
               <select v-model="form.instrument_id">
                 <option value="" disabled>请选择仪器</option>
                 <option v-for="i in instruments" :key="i.id" :value="i.id">{{ i.name }}</option>
@@ -284,7 +284,7 @@
             <label><span>维护开始日期</span>
               <input v-model="form.maintenance_start" type="date" />
             </label>
-            <label><span>类型</span>
+            <label><span>维护类型</span>
               <select v-model="form.maintenance_type">
                 <option value="general">日常维护</option>
                 <option value="repair">维修</option>
