@@ -787,13 +787,8 @@
                 model.booking_enabled = strToBool(model.booking_enabled)
                 model.requires_approval = strToBool(model.requires_approval)
 
-                // 当允许预约时，预约开始/结束时间需要填写且有效
-                if (model.booking_enabled) {
-                    if (!model.booking_start_time || !model.booking_end_time) {
-                        alert('请填写预约开始/结束时间')
-                        return
-                    }
-                    // 简单校验：开始时间需早于结束时间（字符串比较对 HH:MM 可用）
+                // 当允许预约时，若填写了开始/结束时间，则校验先后；未填写则使用默认配置
+                if (model.booking_enabled && model.booking_start_time && model.booking_end_time) {
                     if (model.booking_start_time >= model.booking_end_time) {
                         alert('预约开始时间必须早于结束时间')
                         return
