@@ -101,7 +101,7 @@
     th, td {
       border-bottom: 1px solid var(--border-light);
       padding: 16px;
-      text-align: left;
+      text-align: center;
       vertical-align: middle;
     }
 
@@ -122,18 +122,8 @@
     tr:hover {
       background: var(--surface-secondary);
     }
-    /* 操作列居中（第9列） */
+    /* 所有列居中 */
     .ops-cell { text-align: center; vertical-align: middle; }
-    table th:nth-child(9), table td:nth-child(9) { text-align: center; }
-    /* 特定列居中：日期(2,3)、类型(4)、维护状态(6)、创建时间(8)、操作(9) */
-    table th:nth-child(2), table td:nth-child(2),
-    table th:nth-child(3), table td:nth-child(3),
-    table th:nth-child(4), table td:nth-child(4),
-    table th:nth-child(6), table td:nth-child(6),
-    table th:nth-child(8), table td:nth-child(8),
-    table th:nth-child(9), table td:nth-child(9) {
-      text-align: center;
-    }
 
     /* Table cell utilities */
     .cell {
@@ -141,6 +131,7 @@
       align-items: center;
       gap: 8px;
       min-width: 0; /* allow children to shrink */
+      justify-content: center;
     }
     .truncate {
       overflow: hidden;
@@ -314,7 +305,6 @@
             <th style="width:30%">描述</th>
             <th>维护状态</th>
             <th>创建人</th>
-            <th>创建时间</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -370,11 +360,6 @@
             <td>
               <div class="cell" :title="getUserName(m.created_by)" style="justify-content:center;">
                 <span class="badge gray"><span class="truncate" style="max-width: 100%;">{{ getUserName(m.created_by) }}</span></span>
-              </div>
-            </td>
-            <td>
-              <div class="cell" style="justify-content:center;">
-                {{ formatDate(m.created_at) }}
               </div>
             </td>
             <td class="ops-cell">
