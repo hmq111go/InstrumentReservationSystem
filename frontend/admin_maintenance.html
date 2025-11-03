@@ -173,6 +173,9 @@
     /* 描述列：限制可见宽度以便省略显示 */
     td.desc-cell .truncate { display: inline-block; max-width: 100%; }
 
+    /* 仪器名称：允许换行完整展示 */
+    .name-badge { display: block; max-width: 100%; white-space: normal; word-break: break-word; }
+
     /* 简易弹窗样式 */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
     .modal { width: 720px; max-width: calc(100% - 32px); background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); border: 1px solid var(--border-light); overflow: hidden; }
@@ -312,8 +315,8 @@
           <tr v-for="m in records" :key="m.id">
             <td>
               <div class="cell" :title="getInstrumentName(m.instrument_id)">
-                <span class="badge" style="max-width:100%; background: rgba(0,122,255,0.06); border-color: rgba(0,122,255,0.25); color: #0352ad;">
-                  <span class="truncate">{{ getInstrumentName(m.instrument_id) }}</span>
+                <span class="badge name-badge" style="background: rgba(0,122,255,0.06); border-color: rgba(0,122,255,0.25); color: #0352ad;">
+                  {{ getInstrumentName(m.instrument_id) }}
                 </span>
               </div>
             </td>
