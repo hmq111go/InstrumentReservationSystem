@@ -251,7 +251,7 @@
     <div class="card">
       <div class="toolbar">
         <div class="field" style="min-width:160px; max-width: 200px; flex: 0 0 180px;">
-          <span class="label">仪器</span>
+          <span class="label">仪器名称</span>
           <div class="control cu-control cu-select">
             <select v-model="filterInstrumentId" :class="{placeholder: filterInstrumentId===''}">
               <option value="">选择仪器…</option>
@@ -260,7 +260,7 @@
           </div>
         </div>
         <div class="field" style="flex: 0 0 160px; min-width: 140px; max-width: 180px;">
-          <span class="label">类型</span>
+          <span class="label">维护类型</span>
           <div class="control cu-control cu-select">
             <select v-model="filterType">
               <option value="">全部</option>
@@ -304,7 +304,7 @@
             <th>仪器名称</th>
             <th>开始日期</th>
             <th>结束日期</th>
-            <th>类型</th>
+            <th>维护类型</th>
             <th style="width:30%">描述</th>
             <th>维护状态</th>
             <th>创建人</th>
@@ -357,7 +357,7 @@
                   style="padding:4px 8px;" 
                   :disabled="isUpdating(m.id)"
                   @click="markDone(m)"
-                >{{ isUpdating(m.id) ? '完成中…' : '标记完成' }}</button>
+                >{{ isUpdating(m.id) ? '完成中…' : '点击完成' }}</button>
               </div>
             </td>
             <td>
