@@ -30,7 +30,16 @@
       --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
     }
     * { box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; background: var(--background); color: var(--text-primary); margin: 0; padding: 20px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--background);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 20px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
     .grid { display: grid; grid-template-columns: 200px 1fr; gap: 16px; max-width: 1400px; margin: 0 auto; }
     .card { background: var(--surface); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); border: 1px solid var(--border-light); transition: all 0.2s ease; }
     .card:hover { box-shadow: var(--shadow-lg); }
@@ -64,6 +73,15 @@
     .btn-danger { background: var(--danger); color:#fff; }
     .btn-outline { background: transparent; color: #0F172A; border: 1px solid #CBD5E1; border-radius: 10px; }
     .btn-compact { padding: 6px 10px; font-size: 13px; font-weight: 600; }
+    .btn-ghost-danger { padding: 6px 10px; font-size: 13px; font-weight: 600; color: var(--danger); background: transparent; border: 1px solid rgba(255,59,48,0.35); border-radius: var(--radius-sm); }
+    .btn-ghost-danger:hover { background: rgba(255,59,48,0.06); }
+    .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
     a { color: var(--primary); text-decoration: none; padding: 12px 16px; border-radius: var(--radius-sm); transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease; display: block; }
     /* Inputs */
     .input { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: 14px; }
@@ -101,12 +119,11 @@
       z-index: 1;
     }
 
-    tbody tr:hover {
+    tr:hover {
       background: var(--surface-secondary);
     }
     /* 操作列居中（第9列） */
     .ops-cell { text-align: center; vertical-align: middle; }
-    .ops { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; }
     table th:nth-child(9), table td:nth-child(9) { text-align: center; }
     /* 特定列居中：日期(2,3)、类型(4)、维护状态(6)、创建时间(8)、操作(9) */
     table th:nth-child(2), table td:nth-child(2),
@@ -173,6 +190,30 @@
     .form input, .form select, .form textarea { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-size: 14px; }
     .form textarea { min-height: 88px; resize: vertical; }
     .row-2 { grid-column: 1 / span 2; }
+
+    /* Smooth animations - limit to non-layout properties to avoid jank */
+    *, *::before, *::after {
+      transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--border-light);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--text-tertiary);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
   </style>
   <script>
     // 辅助：平滑同域跳转
@@ -276,38 +317,66 @@
         </thead>
         <tbody>
           <tr v-for="m in records" :key="m.id">
-            <td>{{ getInstrumentName(m.instrument_id) }}</td>
             <td>
-              <template v-if="m.maintenance_start">
-                {{ formatDate(m.maintenance_start) }}
-              </template>
-              <template v-else>{{ formatDate(m.maintenance_date) }}</template>
+              <div class="cell" :title="getInstrumentName(m.instrument_id)">
+                <span class="badge" style="max-width:100%; background: rgba(0,122,255,0.06); border-color: rgba(0,122,255,0.25); color: #0352ad;">
+                  <span class="truncate">{{ getInstrumentName(m.instrument_id) }}</span>
+                </span>
+              </div>
             </td>
             <td>
-              <template v-if="m.maintenance_end">
-                {{ formatDate(m.maintenance_end) }}
-              </template>
-              <template v-else>
-                <span style="color: #999;">-</span>
-              </template>
+              <div class="cell" style="justify-content:center;">
+                <template v-if="m.maintenance_start">
+                  {{ formatDate(m.maintenance_start) }}
+                </template>
+                <template v-else>{{ formatDate(m.maintenance_date) }}</template>
+              </div>
             </td>
-            <td><span :class="['badge', typeBadgeClass(m.maintenance_type)]">{{ getTypeText(m.maintenance_type) }}</span></td>
-            <td>{{ m.description }}</td>
             <td>
-              <span :class="['badge', statusBadgeClass(m.status)]">{{ m.status === 'done' ? '完成' : '进行中' }}</span>
-              <button 
-                v-if="(isManagerOrAdmin || isKeeper) && m.status==='pending'" 
-                class="btn btn-success btn-compact" 
-                style="padding:4px 8px;margin-left:8px" 
-                :disabled="isUpdating(m.id)"
-                @click="markDone(m)"
-              >{{ isUpdating(m.id) ? '完成中…' : '标记完成' }}</button>
+              <div class="cell" style="justify-content:center;">
+                <template v-if="m.maintenance_end">
+                  {{ formatDate(m.maintenance_end) }}
+                </template>
+                <template v-else>
+                  <span style="color: var(--text-secondary);">-</span>
+                </template>
+              </div>
             </td>
-            <td>{{ getUserName(m.created_by) }}</td>
-            <td>{{ formatDate(m.created_at) }}</td>
+            <td>
+              <div class="cell" style="justify-content:center;">
+                <span :class="['badge', typeBadgeClass(m.maintenance_type)]">{{ getTypeText(m.maintenance_type) }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="cell" :title="m.description">
+                <span class="truncate">{{ m.description }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="cell" style="justify-content:center; gap:8px;">
+                <span :class="['badge', statusBadgeClass(m.status)]">{{ m.status === 'done' ? '完成' : '进行中' }}</span>
+                <button 
+                  v-if="(isManagerOrAdmin || isKeeper) && m.status==='pending'" 
+                  class="btn btn-success btn-compact" 
+                  style="padding:4px 8px;" 
+                  :disabled="isUpdating(m.id)"
+                  @click="markDone(m)"
+                >{{ isUpdating(m.id) ? '完成中…' : '标记完成' }}</button>
+              </div>
+            </td>
+            <td>
+              <div class="cell" :title="getUserName(m.created_by)" style="justify-content:center;">
+                <span class="badge gray"><span class="truncate" style="max-width: 100%;">{{ getUserName(m.created_by) }}</span></span>
+              </div>
+            </td>
+            <td>
+              <div class="cell" style="justify-content:center;">
+                {{ formatDate(m.created_at) }}
+              </div>
+            </td>
             <td class="ops-cell">
-              <div class="ops">
-                <button v-if="isManagerOrAdmin || isKeeper" class="btn btn-danger btn-compact" @click="deleteRecord(m)">删除</button>
+              <div class="actions">
+                <button v-if="isManagerOrAdmin || isKeeper" class="btn-ghost-danger" @click="deleteRecord(m)">删除</button>
               </div>
             </td>
           </tr>
