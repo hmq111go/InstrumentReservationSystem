@@ -2,6 +2,13 @@
 
 /* Stable scrollbar to avoid layout shift */
 html { scrollbar-gutter: stable; }
+/* Base typography: unify font family and size across pages */
+html { font-size: 15px; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  line-height: 1.5;
+  color: var(--text-primary, #1D1D1F);
+}
 
 /* Grid layout used by most pages */
 .layout, .grid {
@@ -40,5 +47,10 @@ aside .card a.active { background: rgba(0, 122, 255, 0.1); color: var(--primary,
 .btn, input, select, a, .card, .pagination button {
   transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
 }
+
+/* Tables: ensure header size matches data size */
+table { width: 100%; border-collapse: collapse; }
+th, td { font-size: 15px; }
+thead th { font-weight: 600; }
 
 
