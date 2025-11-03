@@ -179,6 +179,9 @@
     aside .card a,
     aside .card a.active { line-height: 20px; }
 
+    /* 描述列：限制可见宽度以便省略显示 */
+    td.desc-cell .truncate { display: inline-block; max-width: 100%; }
+
     /* 简易弹窗样式 */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
     .modal { width: 720px; max-width: calc(100% - 32px); background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); border: 1px solid var(--border-light); overflow: hidden; }
@@ -301,14 +304,14 @@
       </div>
       <div style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 8px 0;">提示：筛选条件需点击查询生效</div>
 
-      <table v-if="records && records.length">
+      <table v-if="records && records.length" style="width:100%; border-collapse:collapse; table-layout:fixed">
         <thead>
           <tr>
             <th>仪器名称</th>
             <th>开始日期</th>
             <th>结束日期</th>
             <th>类型</th>
-            <th>描述</th>
+            <th style="width:30%">描述</th>
             <th>维护状态</th>
             <th>创建人</th>
             <th>创建时间</th>
@@ -347,7 +350,7 @@
                 <span :class="['badge', typeBadgeClass(m.maintenance_type)]">{{ getTypeText(m.maintenance_type) }}</span>
               </div>
             </td>
-            <td>
+            <td class="desc-cell">
               <div class="cell" :title="m.description">
                 <span class="truncate">{{ m.description }}</span>
               </div>
@@ -376,6 +379,7 @@
             </td>
             <td class="ops-cell">
               <div class="actions">
+                <button v-if="isManagerOrAdmin || isKeeper" class="btn btn-secondary btn-compact" @click="openEdit(m)">编辑</button>
                 <button v-if="isManagerOrAdmin || isKeeper" class="btn-ghost-danger" @click="deleteRecord(m)">删除</button>
               </div>
             </td>
@@ -398,6 +402,48 @@
         <button @click="goToPage(pagination.page + 1)" :disabled="!pagination.has_next">下一页</button>
         <button @click="goToPage(pagination.total_pages)" :disabled="!pagination.has_next">末页</button>
         <div class="pagination-info">共 {{ pagination.total }} 条，第 {{ pagination.page }} / {{ pagination.total_pages }} 页</div>
+      </div>
+    </div>
+
+    <!-- 弹窗：编辑维护记录 -->
+    <div class="modal-overlay" v-if="showEdit" @click.self="cancelEdit">
+      <div class="modal">
+        <header>
+          <span>编辑维护记录</span>
+          <button class="btn btn-secondary" @click="cancelEdit">✕</button>
+        </header>
+        <div class="content">
+          <div class="form" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <label><span>仪器名称</span>
+              <select v-model="editForm.instrument_id">
+                <option value="" disabled>请选择仪器</option>
+                <option v-for="i in instruments" :key="i.id" :value="i.id">{{ i.name }}</option>
+              </select>
+            </label>
+            <label><span>维护开始日期</span>
+              <input v-model="editForm.maintenance_start" type="date" />
+            </label>
+            <label><span>维护类型</span>
+              <select v-model="editForm.maintenance_type">
+                <option value="general">日常维护</option>
+                <option value="repair">维修</option>
+                <option value="calibration">校准</option>
+                <option value="inspection">巡检</option>
+              </select>
+            </label>
+            <label><span>状态</span>
+              <select v-model="editForm.status">
+                <option value="done">完成</option>
+                <option value="pending">进行中</option>
+              </select>
+            </label>
+            <label class="row-2"><span>具体描述</span><textarea v-model="editForm.description"></textarea></label>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary" @click="cancelEdit">取消</button>
+          <button class="btn" style="background: var(--primary); color:#fff" @click="saveEdit">保存</button>
+        </div>
       </div>
     </div>
 
@@ -542,8 +588,23 @@ createApp({
     // 创建维护记录
     const showCreate = ref(false)
     const form = ref({ instrument_id: '', maintenance_type: 'general', maintenance_start: '', maintenance_date: '', description: '', status: 'pending' })
+    const showEdit = ref(false)
+    const editForm = ref({ id: null, instrument_id: '', maintenance_type: 'general', maintenance_start: '', description: '', status: 'pending' })
     function openCreate(){ showCreate.value = true }
     function cancel(){ showCreate.value = false; form.value = { instrument_id: '', maintenance_type: 'general', maintenance_start: '', maintenance_date: '', description: '', status: 'pending' } }
+    function toDateInput(v){ try { if (!v) return ''; const d = new Date(v); if (isNaN(d.getTime())) return ''; const yyyy = d.getFullYear(); const mm = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0'); return `${yyyy}-${mm}-${dd}` } catch(e){ return '' } }
+    function openEdit(m){
+      showEdit.value = true
+      editForm.value = {
+        id: m.id,
+        instrument_id: m.instrument_id,
+        maintenance_type: m.maintenance_type || 'general',
+        maintenance_start: toDateInput(m.maintenance_start || m.maintenance_date),
+        description: m.description || '',
+        status: m.status || 'pending'
+      }
+    }
+    function cancelEdit(){ showEdit.value = false; editForm.value = { id:null, instrument_id:'', maintenance_type:'general', maintenance_start:'', description:'', status:'pending' } }
     async function save(){
       if (!form.value.instrument_id) { alert('请选择仪器'); return }
       const payload = { ...form.value }
@@ -559,6 +620,26 @@ createApp({
         await axios.post(`${api}/api/maintenance`, payload, { headers: headers() })
         alert('保存成功')
         cancel(); loadMaintenance()
+      } catch (e) {
+        const msg = (e && e.response && (e.response.data && (e.response.data.error || e.response.data.message))) || e.message || '保存失败'
+        alert(`保存失败：${msg}`)
+      }
+    }
+
+    async function saveEdit(){
+      if (!editForm.value.id) { alert('无效的记录'); return }
+      if (!editForm.value.instrument_id) { alert('请选择仪器'); return }
+      const payload = { ...editForm.value }
+      // 仅提交允许编辑的字段
+      delete payload.id
+      // 日期转 ISO
+      if (payload.maintenance_start) {
+        try { payload.maintenance_start = new Date(payload.maintenance_start + 'T00:00:00').toISOString() } catch(e) { /* ignore */ }
+      }
+      try {
+        await axios.put(`${api}/api/maintenance/${editForm.value.id}`, payload, { headers: headers() })
+        alert('已保存修改')
+        cancelEdit(); loadMaintenance()
       } catch (e) {
         const msg = (e && e.response && (e.response.data && (e.response.data.error || e.response.data.message))) || e.message || '保存失败'
         alert(`保存失败：${msg}`)
@@ -626,7 +707,7 @@ createApp({
       instruments, userMap, records, pagination, filterInstrumentId, filterType, filterStartDate, filterEndDate, visiblePages, hasActiveFilters,
       getInstrumentName, getUserName, getTypeText, typeBadgeClass, statusBadgeClass, formatDateTime, formatDate,
       goToPage, search, refresh, clearFilters, exportMaintenance, markDone, deleteRecord, isUpdating,
-      showCreate, form, openCreate, cancel, save }
+      showCreate, form, openCreate, cancel, save, showEdit, editForm, openEdit, cancelEdit, saveEdit }
   }
 }).mount('#app')
 </script>
