@@ -72,18 +72,81 @@
     .chip { background: var(--surface-secondary); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; font-size: 12px; color:#555; }
 
     /* Table aligned with 预约管理 */
-    table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius-sm); overflow: hidden; }
-    th, td { text-align: center; padding: 16px; border-bottom: 1px solid var(--border-light); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border-light);
+      padding: 16px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
     /* Table header modern style */
     th { font-size: 15px; }
     td { font-size: 15px; }
-    thead th { background: var(--surface-secondary); z-index: 1; color: var(--text-primary); text-transform: none; border-bottom: 1px solid var(--border); position: sticky; top: 0; }
-    tbody tr:hover { background: var(--surface-secondary); }
+    th {
+      background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+      font-weight: 700;
+      color: #334155;
+      border-bottom: 2px solid var(--border);
+      letter-spacing: 0.2px;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tbody tr:hover {
+      background: var(--surface-secondary);
+    }
     /* 操作列居中（第9列） */
     .ops-cell { text-align: center; vertical-align: middle; }
     .ops { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; }
     table th:nth-child(9), table td:nth-child(9) { text-align: center; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid transparent; }
+    /* 特定列居中：日期(2,3)、类型(4)、维护状态(6)、创建时间(8)、操作(9) */
+    table th:nth-child(2), table td:nth-child(2),
+    table th:nth-child(3), table td:nth-child(3),
+    table th:nth-child(4), table td:nth-child(4),
+    table th:nth-child(6), table td:nth-child(6),
+    table th:nth-child(8), table td:nth-child(8),
+    table th:nth-child(9), table td:nth-child(9) {
+      text-align: center;
+    }
+
+    /* Table cell utilities */
+    .cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0; /* allow children to shrink */
+    }
+    .truncate {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      background: var(--surface-secondary);
+      color: #334155;
+      line-height: 1;
+    }
+    .badge.green { background: rgba(52,199,89,0.08); border-color: rgba(34,197,94,0.35); color: #166534; }
+    .badge.yellow { background: rgba(255,149,0,0.08); border-color: rgba(245,158,11,0.35); color: #92400e; }
+    .badge.gray { background: #F1F5F9; border-color: #E2E8F0; color: #334155; }
     .badge-type-general { background: #eef6ff; color: #0366d6; border-color: #cce4ff; }
     .badge-type-repair { background: #fff5f5; color: #c53030; border-color: #fed7d7; }
     .badge-type-calibration { background: #f0fff4; color: #2f855a; border-color: #c6f6d5; }
