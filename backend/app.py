@@ -3430,6 +3430,11 @@ def create_app():
             "calibration": "校准",
             "inspection": "巡检",
         }
+        status_cn_map={
+            "done":"完成",
+            "pending":"进行中"
+        }
+
         for m in items:
             inst = s.query(Instrument).get(m.instrument_id)
             creator = s.query(User).get(m.created_by)
@@ -3442,7 +3447,7 @@ def create_app():
                 "结束时间": (m.maintenance_end.strftime("%Y-%m-%d %H:%M") if m.maintenance_end else ""),
                 "类型": type_cn_map.get(m.maintenance_type, m.maintenance_type),
                 "描述": m.description or "",
-                "状态": m.status,
+                "状态": status_cn_map.get(m.status,m.status),
                 "创建人": creator.name if creator else "",
                 "创建时间": m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else "",
             })
