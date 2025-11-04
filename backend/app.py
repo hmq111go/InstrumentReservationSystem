@@ -2471,7 +2471,7 @@ def create_app():
         s.add(user)
         s.commit()
         token = issue_jwt_for_user(user)
-        return jsonify({"token": token, "user": serialize_user(user)})
+        return jsonify({"token": token, "user": serialize_user(user, use_dynamic_keeper=True)})
 
     @app.post("/api/auth/external/login")
     def external_login():
@@ -2489,7 +2489,7 @@ def create_app():
         if not pw_hash or not check_password_hash(pw_hash, password):
             return jsonify({"error": "invalid_credentials"}), 401
         token = issue_jwt_for_user(user)
-        return jsonify({"token": token, "user": serialize_user(user)})
+        return jsonify({"token": token, "user": serialize_user(user, use_dynamic_keeper=True)})
 
     @app.get("/api/auth/feishu/callback")
     def feishu_callback():
@@ -2637,7 +2637,8 @@ def create_app():
         # 允许任意通过JWT认证的用户（内部飞书或外部用户）
         if not hasattr(user, 'id') or not getattr(user, 'id', None):
             return jsonify({"error": "not_authenticated"}), 401
-        return jsonify(serialize_user(user))
+        # 使用动态计算的 is_keeper（基于仪器 keeper_id）
+        return jsonify(serialize_user(user, use_dynamic_keeper=True))
 
     @app.post("/api/auth/logout")
     def logout():
@@ -3025,8 +3026,19 @@ def create_app():
         qr_url = f"{base_url}/feishu-reserve?instrument_id={instrument_id}&autologin=1"
         return jsonify({"qrcode_url": qr_url})
 
-    def serialize_user(u: "User"):
-        """序列化用户信息"""
+    def check_user_is_keeper(user_id: int) -> bool:
+        """动态检查用户是否是任何仪器的保管人"""
+        s = get_session()
+        return s.query(Instrument).filter(Instrument.keeper_id == user_id).count() > 0
+
+    def serialize_user(u: "User", use_dynamic_keeper: bool = False):
+        """序列化用户信息
+        
+        Args:
+            u: 用户对象
+            use_dynamic_keeper: 是否动态计算 is_keeper（基于仪器 keeper_id）
+        """
+        is_keeper = check_user_is_keeper(u.id) if use_dynamic_keeper else u.is_keeper
         return {
             "id": u.id,
             "name": u.name,
@@ -3035,7 +3047,7 @@ def create_app():
             "type": u.type,
             "role": u.role,
             "is_active": u.is_active,
-            "is_keeper": u.is_keeper,
+            "is_keeper": is_keeper,
             "created_by": u.created_by,
             "permissions": u.permissions or {},
             "allowed_windows": u.allowed_windows or [],
