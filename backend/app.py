@@ -1102,8 +1102,16 @@ def create_app():
         # 若指定manageable=true，则仅返回当前用户可以管理的仪器（管理员不受限）
         if (manageable in ["1", "true", "True"]):
             user = get_current_user()
-            if user.role not in ["admin", "super_admin"] and getattr(user, 'is_keeper', False):
-                q = q.filter(Instrument.keeper_id == user.id)
+            if user.role not in ["admin", "super_admin"]:
+                # 动态检查用户是否是任何仪器的保管人
+                keeper_instruments = s.query(Instrument.id).filter(Instrument.keeper_id == user.id).all()
+                if keeper_instruments:
+                    # 用户是保管员，只返回其负责的仪器
+                    keeper_instrument_ids = [inst.id for inst in keeper_instruments]
+                    q = q.filter(Instrument.id.in_(keeper_instrument_ids))
+                else:
+                    # 用户不是保管员，返回空列表
+                    q = q.filter(text("1=0"))
 
         # 检查是否请求分页数据
         if page > 1 or page_size != 10 or request.args.get("page") is not None:
@@ -1567,10 +1575,18 @@ def create_app():
             if not getattr(user, 'id', None):
                 q = q.filter(text("1=0"))
             else:
-                if manage_scope in ["1", "true", "True"] and getattr(user, 'is_keeper', False):
-                    q = q.join(Instrument, Instrument.id == Reservation.instrument_id).filter(
-                        Instrument.keeper_id == user.id)
+                if manage_scope in ["1", "true", "True"]:
+                    # 管理视图：动态检查用户是否是保管员
+                    keeper_instruments = s.query(Instrument.id).filter(Instrument.keeper_id == user.id).all()
+                    if keeper_instruments:
+                        # 用户是保管员，只显示其负责仪器的预约
+                        keeper_instrument_ids = [inst.id for inst in keeper_instruments]
+                        q = q.filter(Reservation.instrument_id.in_(keeper_instrument_ids))
+                    else:
+                        # 用户不是保管员，无权查看管理视图
+                        q = q.filter(text("1=0"))
                 else:
+                    # 我的预约：只显示自己的预约
                     q = q.filter(Reservation.user_id == user.id)
 
         # 检查是否请求分页数据
@@ -3129,10 +3145,18 @@ def create_app():
 
         # 权限：管理员/超管可见所有；保管员仅见自己负责仪器；普通用户无权查看
         if user.role not in ["admin", "super_admin"]:
-            if getattr(user, 'is_keeper', False) and getattr(user, 'id', None):
-                q = q.filter(MaintenanceRecord.instrument_id.in_(
-                    s.query(Instrument.id).filter(Instrument.keeper_id == user.id)
-                ))
+            # 动态检查用户是否是任何仪器的保管人
+            if getattr(user, 'id', None):
+                keeper_instruments = s.query(Instrument.id).filter(Instrument.keeper_id == user.id).all()
+                if keeper_instruments:
+                    # 用户是保管员，只显示其负责仪器的维护记录
+                    keeper_instrument_ids = [inst.id for inst in keeper_instruments]
+                    q = q.filter(MaintenanceRecord.instrument_id.in_(keeper_instrument_ids))
+                else:
+                    # 用户不是保管员，无权查看
+                    return jsonify({"items": [],
+                                    "pagination": {"page": 1, "page_size": page_size, "total": 0, "total_pages": 0,
+                                                   "has_prev": False, "has_next": False}})
             else:
                 return jsonify({"items": [],
                                 "pagination": {"page": 1, "page_size": page_size, "total": 0, "total_pages": 0,
@@ -3166,7 +3190,8 @@ def create_app():
             inst = s.query(Instrument).get(instrument_id)
             if not inst:
                 return jsonify({"error": "instrument_not_found"}), 404
-            if not (getattr(user, 'is_keeper', False) and inst.keeper_id == user.id):
+            # 检查用户是否是该仪器的保管人（直接检查 keeper_id）
+            if inst.keeper_id != user.id:
                 return jsonify({"error": "permission_denied"}), 403
 
         # 解析日期/日期范围
@@ -3224,7 +3249,8 @@ def create_app():
         # 权限：管理员/超管；或保管人且记录所属仪器为其管理
         if user.role not in ["admin", "super_admin"]:
             inst = s.query(Instrument).get(rec.instrument_id)
-            if not (getattr(user, 'is_keeper', False) and inst and inst.keeper_id == user.id):
+            # 检查用户是否是该仪器的保管人（直接检查 keeper_id）
+            if not inst or inst.keeper_id != user.id:
                 return jsonify({"error": "permission_denied"}), 403
 
         data = request.json or {}
@@ -3273,11 +3299,9 @@ def create_app():
 
         # 权限：管理员/超管；或保管人且记录所属仪器为其管理
         if user.role not in ["admin", "super_admin"]:
-            if not (getattr(user, 'is_keeper', False) and getattr(user, 'id', None)):
-                return jsonify({"error": "permission_denied"}), 403
-
             inst = s.query(Instrument).get(rec.instrument_id)
-            if not (inst and inst.keeper_id == user.id):
+            # 检查用户是否是该仪器的保管人（直接检查 keeper_id）
+            if not inst or inst.keeper_id != user.id:
                 return jsonify({"error": "permission_denied"}), 403
 
         # 记录仪器ID以便同步状态
@@ -3383,13 +3407,19 @@ def create_app():
                 q = q.filter(or_(*conds))
 
         if user.role not in ["admin", "super_admin"]:
-            if getattr(user, 'is_keeper', False) and getattr(user, 'id', None):
-                q = q.filter(MaintenanceRecord.instrument_id.in_(
-                    s.query(Instrument.id).filter(Instrument.keeper_id == user.id)
-                ))
+            # 动态检查用户是否是任何仪器的保管人
+            if getattr(user, 'id', None):
+                keeper_instruments = s.query(Instrument.id).filter(Instrument.keeper_id == user.id).all()
+                if keeper_instruments:
+                    # 用户是保管员，只导出其负责仪器的维护记录
+                    keeper_instrument_ids = [inst.id for inst in keeper_instruments]
+                    q = q.filter(MaintenanceRecord.instrument_id.in_(keeper_instrument_ids))
+                else:
+                    # 普通用户仅导出自己创建的维护记录
+                    q = q.filter(MaintenanceRecord.created_by == user.id)
             else:
-                # 普通用户仅导出自己创建的维护记录
-                q = q.filter(MaintenanceRecord.created_by == getattr(user, 'id', -1))
+                # 未认证用户，返回空结果
+                q = q.filter(text("1=0"))
 
         items = q.order_by(MaintenanceRecord.created_at.desc()).all()
         rows = []
