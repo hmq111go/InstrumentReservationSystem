@@ -3425,7 +3425,7 @@ def create_app():
         items = q.order_by(MaintenanceRecord.created_at.desc()).all()
         rows = []
         type_cn_map = {
-            "maintenance": "维护",
+            "general": "日常维护",
             "repair": "维修",
             "calibration": "校准",
             "inspection": "巡检",
