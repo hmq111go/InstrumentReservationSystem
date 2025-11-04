@@ -1429,6 +1429,7 @@ def create_app():
         items = q.order_by(Reservation.created_at.desc()).all()
 
         # 准备导出数据
+        status_cn_map = {"pending": "待审批", "approved": "已通过", "rejected": "已驳回", "cancelled": "已取消"}
         export_data = []
         for r in items:
             export_data.append({
@@ -1437,7 +1438,7 @@ def create_app():
                 "预约人": r.user.name if r.user else "未知用户",
                 "开始时间": r.start_time.strftime("%Y-%m-%d %H:%M") if r.start_time else "",
                 "结束时间": r.end_time.strftime("%Y-%m-%d %H:%M") if r.end_time else "",
-                "状态": r.status,
+                "状态": status_cn_map.get(r.status, r.status),
                 "创建时间": r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else "",
                 "预约人电话": r.user.phone if r.user and r.user.phone else "",
                 "仪器位置": r.instrument.location if r.instrument and r.instrument.location else "",
@@ -3423,6 +3424,12 @@ def create_app():
 
         items = q.order_by(MaintenanceRecord.created_at.desc()).all()
         rows = []
+        type_cn_map = {
+            "maintenance": "维护",
+            "repair": "维修",
+            "calibration": "校准",
+            "inspection": "巡检",
+        }
         for m in items:
             inst = s.query(Instrument).get(m.instrument_id)
             creator = s.query(User).get(m.created_by)
@@ -3433,7 +3440,7 @@ def create_app():
                 "开始时间": (m.maintenance_start.strftime("%Y-%m-%d %H:%M") if m.maintenance_start else (
                     m.maintenance_date.strftime("%Y-%m-%d %H:%M") if m.maintenance_date else "")),
                 "结束时间": (m.maintenance_end.strftime("%Y-%m-%d %H:%M") if m.maintenance_end else ""),
-                "类型": m.maintenance_type,
+                "类型": type_cn_map.get(m.maintenance_type, m.maintenance_type),
                 "描述": m.description or "",
                 "状态": m.status,
                 "创建人": creator.name if creator else "",
