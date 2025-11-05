@@ -361,7 +361,7 @@
       </div>
       <div style="color: var(--text-secondary); font-size: 14px; margin: 8px 0 8px 0;">提示：默认显示待审批记录；筛选条件需点击查询生效</div>
       <table>
-        <thead><tr><th>仪器名称</th><th>开始时间</th><th>结束时间</th><th>预约人</th><th>预约状态</th><th>操作</th></tr></thead>
+        <thead><tr><th>仪器名称</th><th>开始时间</th><th>结束时间</th><th>预约人</th><th>预约状态</th></tr></thead>
         <tbody>
           <tr v-for="r in filtered" :key="r.id">
             <td><span class="chip chip-primary">{{ r.instrument_name }}</span></td>
@@ -370,17 +370,6 @@
             <td><span class="chip">{{ r.employee_name }}<span v-if="r.notes">（{{ r.notes }}）</span></span></td>
             <td>
               <span :class="'badge ' + getStatusClass(r.status)">{{ getStatusText(r.status) }}</span>
-            </td>
-            <td class="ops-cell">
-              <div class="ops">
-                <template v-if="r.status==='pending'">
-                  <button class="btn btn-compact btn-success" @click="confirmApprove(r)">通过</button>
-                  <button class="btn btn-compact btn-ghost-danger" @click="confirmReject(r)">驳回</button>
-                </template>
-                <template v-else>
-                  <span :class="'badge ' + getStatusClass(r.status)">{{ getStatusText(r.status) }}</span>
-                </template>
-              </div>
             </td>
           </tr>
         </tbody>
@@ -518,10 +507,7 @@ createApp({
       return map[status] || 'badge'
     }
 
-    async function approve(r){ await axios.post(`${api}/api/reservations/${r.id}/approve`, {}, { headers: headers() }); await load() }
-    async function reject(r){ await axios.post(`${api}/api/reservations/${r.id}/reject`, {}, { headers: headers() }); await load() }
-    async function confirmApprove(r){ if(!confirm('确认通过该预约？')) return; await approve(r) }
-    async function confirmReject(r){ if(!confirm('确认驳回该预约？')) return; await reject(r) }
+
 
     async function load(){
       const ins = await axios.get(`${api}/api/instruments`, { params: { manageable: true }, headers: headers() })
@@ -599,7 +585,7 @@ createApp({
     
     return { 
       user, userLoaded, instruments, reservations, pagination, currentPageNum, pageSize, instrumentId, status, startDate, endDate,
-      searchLoading, visiblePages, filtered, load, approve, reject, confirmApprove, confirmReject, formatDateTime, getStatusText, getStatusClass, goToPage, search, onPageSizeChange, clearFilters,
+      searchLoading, visiblePages, filtered, load, formatDateTime, getStatusText, getStatusClass, goToPage, search, onPageSizeChange, clearFilters,
       isManagerOrAdmin, isSuperAdmin, isKeeper, isActive
     }
   }
