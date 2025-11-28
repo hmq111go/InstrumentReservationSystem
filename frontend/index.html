@@ -533,35 +533,67 @@ createApp({
     const windowWidth = ref(window.innerWidth)
     const hasInstrumentIdInURL = ref(false)
     const viewDate = ref(new Date(new Date().setHours(0,0,0,0)))
-
-    const monday = ref(new Date(new Date().setHours(0,0,0,0)))
-    monday.value.setDate(monday.value.getDate() - ((monday.value.getDay()+6)%7))
-
     const search = ref('')
 
-    const weekDays = computed(()=>
-      Array.from({length:7}, (_,i)=>{
-        const d = new Date(monday.value)
-        d.setDate(d.getDate()+i)
-        const label = `${d.getMonth()+1}月${d.getDate()}日`
-        return { date: d, label }
-      })
-    )
+    const weekdayNames = ['周日','周一','周二','周三','周四','周五','周六']
 
-    const weekTitle = computed(()=>{
-      const start = weekDays.value[0].date, end = weekDays.value[6].date
-      return `${start.getFullYear()}年 ${start.getMonth()+1}月 ${start.getDate()}日 — ${end.getFullYear()}年 ${end.getMonth()+1}月 ${end.getDate()}日`
+    const weekDays = computed(() => {
+      const d = new Date(viewDate.value)
+      d.setHours(0, 0, 0, 0)
+      const label = `${d.getMonth() + 1}月${d.getDate()}日 ${weekdayNames[d.getDay()]}`
+      return [{ date: d, label }]
+    })
+
+    const weekTitle = computed(() => {
+      const d = new Date(viewDate.value)
+      return `${d.getFullYear()}年 ${d.getMonth() + 1}月 ${d.getDate()}日 ${weekdayNames[d.getDay()]}`
     })
 
     const selection = ref(null) // {start, end}
     const slotMinutes = ref(15)
     const reservationNotes = ref('') // 预约备注
-    const totalRows = computed(()=> Math.floor(24*60/slotMinutes.value))
+
+    function parseTimeToMinutes(value) {
+      if (!value && value !== 0) return null
+      const parts = String(value).split(':')
+      const hour = Number(parts[0])
+      const minute = parts.length > 1 ? Number(parts[1]) : 0
+      if (!Number.isFinite(hour) || hour < 0 || hour > 23) return null
+      const safeMinute = Number.isFinite(minute) ? Math.min(Math.max(minute, 0), 59) : 0
+      return hour * 60 + safeMinute
+    }
+
+    const bookingWindow = computed(() => {
+      const step = Number(slotMinutes.value) || 15
+      const inst = currentInstrument.value
+      const fallbackStart = 8 * 60
+      const fallbackEnd = 18 * 60
+      const startMinutes = parseTimeToMinutes(inst?.booking_start_time) ?? fallbackStart
+      const endMinutes = parseTimeToMinutes(inst?.booking_end_time) ?? fallbackEnd
+      let start = Math.max(0, Math.min(startMinutes, (24 * 60) - step))
+      let end = Math.max(start + step, Math.min(endMinutes, 24 * 60))
+      if (end <= start) {
+        end = Math.min(start + step, 24 * 60)
+      }
+      return {
+        startMinutes: start,
+        endMinutes: end
+      }
+    })
+
+    const totalRows = computed(() => {
+      const step = Number(slotMinutes.value) || 15
+      const { startMinutes, endMinutes } = bookingWindow.value
+      const duration = Math.max(endMinutes - startMinutes, step)
+      return Math.max(1, Math.floor(duration / step))
+    })
 
     function cellTime(day, row){
       const dt = new Date(day.date)
-      const minutes = (row-1) * slotMinutes.value
-      dt.setMinutes(minutes)
+      dt.setHours(0, 0, 0, 0)
+      const offset = bookingWindow.value.startMinutes + (row-1) * slotMinutes.value
+      const safeOffset = Math.min(offset, bookingWindow.value.endMinutes - slotMinutes.value)
+      dt.setMinutes(safeOffset)
       return dt
     }
 
@@ -601,24 +633,10 @@ createApp({
 
     // 检查是否在可预约时间内
     function isWithinBookingHours(start, end) {
-      if (!currentInstrument.value) return true
-      
-      const startHour = currentInstrument.value.booking_start_time ? 
-        parseInt(currentInstrument.value.booking_start_time.split(':')[0]) : 8
-      const startMinute = currentInstrument.value.booking_start_time ? 
-        parseInt(currentInstrument.value.booking_start_time.split(':')[1]) || 0 : 0
-      const endHour = currentInstrument.value.booking_end_time ? 
-        parseInt(currentInstrument.value.booking_end_time.split(':')[0]) : 18
-      const endMinute = currentInstrument.value.booking_end_time ? 
-        parseInt(currentInstrument.value.booking_end_time.split(':')[1]) || 0 : 0
-      
-      const startMinutes = start.getHours() * 60 + start.getMinutes()
-      const endMinutes = end.getHours() * 60 + end.getMinutes()
-      const bookingStartMinutes = startHour * 60 + startMinute
-      const bookingEndMinutes = endHour * 60 + endMinute
-      
-      // 时间段必须完全在预约时间范围内
-      return startMinutes >= bookingStartMinutes && endMinutes <= bookingEndMinutes
+      const { startMinutes, endMinutes } = bookingWindow.value
+      const slotStart = start.getHours() * 60 + start.getMinutes()
+      const slotEnd = end.getHours() * 60 + end.getMinutes()
+      return slotStart >= startMinutes && slotEnd <= endMinutes
     }
 
     function clickCell(day, row){
@@ -708,9 +726,26 @@ createApp({
       }catch(e){ /* ignore */ }
     }
 
-    function thisWeek(){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-((d.getDay()+6)%7)); monday.value=d; loadReservations() }
-    function prevWeek(){ monday.value = addMinutes(monday.value, -7*24*60); loadReservations() }
-    function nextWeek(){ monday.value = addMinutes(monday.value, 7*24*60); loadReservations() }
+    function thisWeek(){
+      const d=new Date()
+      d.setHours(0,0,0,0)
+      viewDate.value=d
+      loadReservations()
+    }
+    function prevWeek(){
+      const d=new Date(viewDate.value)
+      d.setDate(d.getDate()-1)
+      d.setHours(0,0,0,0)
+      viewDate.value=d
+      loadReservations()
+    }
+    function nextWeek(){
+      const d=new Date(viewDate.value)
+      d.setDate(d.getDate()+1)
+      d.setHours(0,0,0,0)
+      viewDate.value=d
+      loadReservations()
+    }
 
     async function createReservation(){
       if(!canReserve.value) return
@@ -897,10 +932,12 @@ createApp({
     })
     const mobileSlots = computed(()=>{
       const slots = []
-      const start = new Date(viewDate.value)
+      const dayStart = new Date(viewDate.value)
+      dayStart.setHours(0,0,0,0)
       const now = new Date()
-      for(let mins=0; mins<24*60; mins+=slotMinutes.value){
-        const s = new Date(start); s.setMinutes(mins)
+      const { startMinutes, endMinutes } = bookingWindow.value
+      for(let mins=startMinutes; mins<endMinutes; mins+=slotMinutes.value){
+        const s = new Date(dayStart); s.setMinutes(mins)
         const e = new Date(s); e.setMinutes(e.getMinutes()+slotMinutes.value)
         const resv = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status !== 'cancelled' && r.status !== 'rejected')
         let className = 'free'
@@ -961,7 +998,7 @@ createApp({
     }
 
     function rowLabel(row){
-      const mins = (row-1)*slotMinutes.value
+      const mins = bookingWindow.value.startMinutes + (row-1)*slotMinutes.value
       const hh = Math.floor(mins/60)
       const mm = mins%60
       return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`
