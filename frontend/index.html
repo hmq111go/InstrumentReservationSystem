@@ -765,17 +765,6 @@ createApp({
       return slotStart >= startMinutes && slotEnd <= endMinutes
     }
 
-    function clickCell(day, row){
-      const s = cellTime(day, row)
-      const e = addMinutes(s, slotMinutes.value)
-      if(cellClass(day, row) !== 'free') return
-      // toggle/expand selection
-      if(!selection.value) selection.value = { start: s, end: e }
-      else if(e.getTime() === selection.value.start.getTime()) selection.value.start = s
-      else if(s.getTime() === selection.value.end.getTime()) selection.value.end = e
-      else selection.value = { start: s, end: e }
-    }
-
     const selectedRangeText = computed(()=> selection.value ? `${selection.value.start.toLocaleString()} → ${selection.value.end.toLocaleString()}` : '')
     const canReserve = computed(()=> {
       if(!(selectedInstrumentId.value && selection.value && user.value && user.value.id)) return false
@@ -1123,10 +1112,89 @@ createApp({
       return !!(r && r.status === 'pending')
     }
 
+    function rangeHasOnlyFreeRows(startRow, endRow) {
+      const low = Math.min(startRow, endRow)
+      const high = Math.max(startRow, endRow)
+      for (let r = low; r <= high; r++) {
+        if(slotState(activeDay.value, r) !== 'free') return false
+      }
+      return true
+    }
+
+    function updateSelectionRange(startRow, endRow) {
+      const low = Math.min(startRow, endRow)
+      const high = Math.max(startRow, endRow)
+      const startTime = cellTime(activeDay.value, low)
+      const endBase = cellTime(activeDay.value, high)
+      selection.value = { start: startTime, end: addMinutes(endBase, slotMinutes.value) }
+    }
+
+    function onSlotMouseDown(row){
+      if(slotState(activeDay.value, row) !== 'free') return
+      dragState.active = true
+      dragState.anchorRow = row
+      updateSelectionRange(row, row)
+    }
+
+    function onSlotMouseEnter(row){
+      if(!dragState.active || dragState.anchorRow === null) return
+      if(!rangeHasOnlyFreeRows(dragState.anchorRow, row)) return
+      updateSelectionRange(dragState.anchorRow, row)
+    }
+
+    function finishDrag(){
+      dragState.active = false
+      dragState.anchorRow = null
+    }
+
+    function onSlotMouseUp(){
+      finishDrag()
+    }
+
+    function cancelDrag(){
+      finishDrag()
+    }
+
+    function onSlotTouchStart(row){
+      onSlotMouseDown(row)
+    }
+
+    function onSlotTouchMove(event){
+      if(!dragState.active) return
+      const touch = event.touches && event.touches[0]
+      if(!touch) return
+      const target = document.elementFromPoint(touch.clientX, touch.clientY)
+      if(!target || !target.closest) return
+      const slotEl = target.closest('.slot-single[data-row]')
+      if(!slotEl) return
+      const row = Number(slotEl.dataset.row)
+      if(!row || Number.isNaN(row)) return
+      onSlotMouseEnter(row)
+    }
+
+    const handleGlobalPointerUp = () => finishDrag()
+
+    onMounted(() => {
+      window.addEventListener('mouseup', handleGlobalPointerUp)
+      window.addEventListener('touchend', handleGlobalPointerUp)
+      window.addEventListener('touchcancel', handleGlobalPointerUp)
+    })
+
+    onBeforeUnmount(() => {
+      window.removeEventListener('mouseup', handleGlobalPointerUp)
+      window.removeEventListener('touchend', handleGlobalPointerUp)
+      window.removeEventListener('touchcancel', handleGlobalPointerUp)
+    })
+
     function formatMinutesRangeLabel(totalMinutes){
       const hh = Math.floor(totalMinutes/60)
       const mm = totalMinutes%60
       return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`
+    }
+
+    function rowStartLabel(row){
+      const start = bookingWindow.value.startMinutes + (row-1)*slotMinutes.value
+      return formatMinutesRangeLabel(start)
     }
 
     function rowLabel(row){
@@ -1151,7 +1219,7 @@ createApp({
       }
     })
     
-    return { api, showApiBar, saveAPI, instruments, employees, reservations, myReservations, search, selectedInstrumentId, selectInstrument, weekDays, weekTitle, prevWeek, nextWeek, thisWeek, cellClass, clickCell, selectedRangeText, createReservation, canReserve, loadInstruments, approve, reject, cancel, formatDT, seedIfEmpty, cellLabel, cellTooltip, cellPending, totalRows, rowLabel, isLoggedIn, user, token, headers, checkLoginStatus, goToLogin, getRoleText, goBack, isMobileReserve, currentInstrument, mobileSlots, mobileClickSlot, mobileReserve, mobileDateLabel, mobilePrevDay, mobileNextDay, dayReservations, isWithinBookingHours, getMaintenanceTypeText, getStatusCn, reservationNotes, activeDay }
+    return { api, showApiBar, saveAPI, instruments, employees, reservations, myReservations, search, selectedInstrumentId, selectInstrument, weekDays, weekTitle, prevWeek, nextWeek, thisWeek, cellClass, selectedRangeText, createReservation, canReserve, loadInstruments, approve, reject, cancel, formatDT, seedIfEmpty, cellLabel, cellTooltip, cellPending, totalRows, rowLabel, rowStartLabel, isLoggedIn, user, token, headers, checkLoginStatus, goToLogin, getRoleText, goBack, isMobileReserve, currentInstrument, mobileSlots, mobileClickSlot, mobileReserve, mobileDateLabel, mobilePrevDay, mobileNextDay, dayReservations, isWithinBookingHours, getMaintenanceTypeText, getStatusCn, reservationNotes, activeDay, onSlotMouseDown, onSlotMouseEnter, onSlotMouseUp, onSlotTouchStart, onSlotTouchMove, cancelDrag }
   }
 }).mount('#app')
 </script>
