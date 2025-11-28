@@ -398,7 +398,7 @@
     <div class="grid">
       <div style="padding:4px;border-bottom:1px solid #e5e7eb; text-align:center">时间</div>
       <template v-for="(day, dIdx) in weekDays">
-        <div style="padding:4px;border-bottom:1px solid #e5e7eb; text-align:center">{{ day.label }}</div>
+        <div style="padding:4px;border-bottom:1px solid #e5e7eb; text-align:center" aria-hidden="true"></div>
       </template>
       <template v-for="row in totalRows">
         <div class="cell" style="background:#f8fafc;color:#475569">{{ rowLabel(row) }}</div>
