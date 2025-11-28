@@ -2194,7 +2194,7 @@ def create_app():
     def serialize_instrument(i: "Instrument"):
         return {
             "id": i.id,
-            "name": f"{i.name}" + (f" ({i.model})" if i.model else ""),
+            "name": i.name,
             "slot_minutes": i.slot_minutes or 15,
             "asset_code": i.asset_code,
             "factory_code": i.factory_code,
