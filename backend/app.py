@@ -2252,7 +2252,7 @@ def create_app():
             "end_time": iso(r.end_time),
             "status": r.status,
             "notes": r.notes,  # 预约备注
-            "instrument_name": (f"{r.instrument.name}" + (f" ({r.instrument.model})" if r.instrument.model else "")) if r.instrument else None,
+            "instrument_name": r.instrument.name if r.instrument else None,
             "employee_name": r.user.name if r.user else None,  # 向后兼容
             "user_name": r.user.name if r.user else None,
         }
