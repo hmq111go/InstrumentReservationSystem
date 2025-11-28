@@ -658,7 +658,10 @@ createApp({
 
     async function loadReservations(){
       if(!selectedInstrumentId.value) return
-      const { data } = await axios.get(`${api.value}/api/reservations`, { params: { instrument_id: selectedInstrumentId.value }, headers: headers.value })
+      const { data } = await axios.get(
+        `${api.value}/api/instruments/${selectedInstrumentId.value}/reservations`,
+        { headers: headers.value }
+      )
       reservations.value = data
     }
 
