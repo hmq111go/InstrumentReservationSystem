@@ -153,6 +153,22 @@
       background: var(--surface);
     }
 
+    .slot-column {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      padding: 8px;
+      gap: 8px;
+    }
+
+    .slot-single {
+      min-height: 48px;
+      border: 1px dashed var(--border-light);
+      width: 100%;
+    }
+
     .cell {
       height: 24px;
       border-right: 1px solid var(--border-light);
@@ -395,22 +411,22 @@
       <button @click="thisWeek" class="btn btn-secondary">今天</button>
       <button @click="nextWeek" class="btn btn-secondary">▶</button>
     </div>
-    <div class="grid">
-      <div style="padding:4px;border-bottom:1px solid #e5e7eb; text-align:center">时间</div>
-      <template v-for="(day, dIdx) in weekDays">
-        <div style="padding:4px;border-bottom:1px solid #e5e7eb; text-align:center" aria-hidden="true"></div>
-      </template>
-      <template v-for="row in totalRows">
-        <div class="cell" style="background:#f8fafc;color:#475569">{{ rowLabel(row) }}</div>
-        <template v-for="(day, dIdx) in weekDays">
-          <div class="cell" :class="cellClass(day, row)" :title="cellTooltip(day,row)" @click="clickCell(day, row)">
-            <div style="display:flex;flex-direction:column;align-items:center;line-height:1;">
-              <span>{{ cellLabel(day,row) }}</span>
-              <span v-if="cellPending(day,row)" style="font-size:10px;color:#ff9500;margin-top:2px">审核中</span>
-            </div>
-          </div>
-        </template>
-      </template>
+    <div class="slot-column">
+      <div
+        v-for="row in totalRows"
+        :key="row"
+        class="cell slot-single"
+        :class="cellClass(activeDay, row)"
+        :title="cellTooltip(activeDay, row)"
+        @click="clickCell(activeDay, row)"
+        style="display:flex;flex-direction:column;align-items:flex-start;gap:4px"
+      >
+        <div style="font-size:12px;color:#475569;">{{ rowLabel(row) }}</div>
+        <div style="width:100%;display:flex;flex-direction:column;align-items:flex-start;line-height:1;">
+          <span>{{ cellLabel(activeDay,row) || '可预约' }}</span>
+          <span v-if="cellPending(activeDay,row)" style="font-size:10px;color:#ff9500;margin-top:2px">审核中</span>
+        </div>
+      </div>
     </div>
     <div style="margin-top:12px; display:flex; gap:8px; align-items:center">
       <button @click="createReservation" :disabled="!canReserve" class="btn btn-primary">预约所选</button>
@@ -543,6 +559,7 @@ createApp({
       const label = `${d.getMonth() + 1}月${d.getDate()}日 ${weekdayNames[d.getDay()]}`
       return [{ date: d, label }]
     })
+    const activeDay = computed(() => weekDays.value[0])
 
     const weekTitle = computed(() => {
       const d = new Date(viewDate.value)
@@ -1020,7 +1037,7 @@ createApp({
       }
     })
     
-    return { api, showApiBar, saveAPI, instruments, employees, reservations, myReservations, search, selectedInstrumentId, selectInstrument, weekDays, weekTitle, prevWeek, nextWeek, thisWeek, cellClass, clickCell, selectedRangeText, createReservation, canReserve, loadInstruments, approve, reject, cancel, formatDT, seedIfEmpty, cellLabel, cellTooltip, cellPending, totalRows, rowLabel, isLoggedIn, user, token, headers, checkLoginStatus, goToLogin, getRoleText, goBack, isMobileReserve, currentInstrument, mobileSlots, mobileClickSlot, mobileReserve, mobileDateLabel, mobilePrevDay, mobileNextDay, dayReservations, isWithinBookingHours, getMaintenanceTypeText, getStatusCn, reservationNotes }
+    return { api, showApiBar, saveAPI, instruments, employees, reservations, myReservations, search, selectedInstrumentId, selectInstrument, weekDays, weekTitle, prevWeek, nextWeek, thisWeek, cellClass, clickCell, selectedRangeText, createReservation, canReserve, loadInstruments, approve, reject, cancel, formatDT, seedIfEmpty, cellLabel, cellTooltip, cellPending, totalRows, rowLabel, isLoggedIn, user, token, headers, checkLoginStatus, goToLogin, getRoleText, goBack, isMobileReserve, currentInstrument, mobileSlots, mobileClickSlot, mobileReserve, mobileDateLabel, mobilePrevDay, mobileNextDay, dayReservations, isWithinBookingHours, getMaintenanceTypeText, getStatusCn, reservationNotes, activeDay }
   }
 }).mount('#app')
 </script>
