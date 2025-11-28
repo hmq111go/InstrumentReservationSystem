@@ -153,9 +153,51 @@
       background: var(--surface);
     }
 
-    .slot-column {
+    .slot-track {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: 48px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .time-axis {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      position: relative;
+    }
+
+    .time-axis::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--border-light);
+      transform: translateX(-50%);
+      border-radius: 2px;
+    }
+
+    .time-marker {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      font-size: 12px;
+      color: var(--text-secondary);
+      letter-spacing: 2px;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .slot-column {
+      display: flex;
+      flex-direction: column;
       gap: 12px;
     }
 
@@ -169,6 +211,7 @@
       box-shadow: var(--shadow);
       cursor: pointer;
       transition: transform 0.15s ease, box-shadow 0.15s ease;
+      user-select: none;
     }
 
     .slot-single:hover {
@@ -441,18 +484,35 @@
       <button @click="thisWeek" class="btn btn-secondary">今天</button>
       <button @click="nextWeek" class="btn btn-secondary">▶</button>
     </div>
-    <div class="slot-column">
-      <div
-        v-for="row in totalRows"
-        :key="row"
-        :class="['slot-single', cellClass(activeDay, row)]"
-        :title="cellTooltip(activeDay, row)"
-        @click="clickCell(activeDay, row)"
-      >
-        <div style="font-size:12px;color:#475569;font-weight:600">{{ rowLabel(row) }}</div>
-        <div style="width:100%;display:flex;flex-direction:column;align-items:flex-start;line-height:1.3;">
-          <span>{{ cellLabel(activeDay,row) || '可预约' }}</span>
-          <span v-if="cellPending(activeDay,row)" style="font-size:11px;color:#ff9500;margin-top:2px">审核中</span>
+    <div class="slot-track">
+      <div class="time-axis">
+        <div
+          v-for="row in totalRows"
+          :key="`axis-${row}`"
+          class="time-marker"
+        >
+          {{ rowStartLabel(row) }}
+        </div>
+      </div>
+      <div class="slot-column" @mouseleave="cancelDrag">
+        <div
+          v-for="row in totalRows"
+          :key="row"
+          :data-row="row"
+          :class="['slot-single', cellClass(activeDay, row)]"
+          :title="cellTooltip(activeDay, row)"
+          @mousedown.prevent="onSlotMouseDown(row)"
+          @mouseenter="onSlotMouseEnter(row)"
+          @mouseup.prevent="onSlotMouseUp"
+          @touchstart.prevent="onSlotTouchStart(row)"
+          @touchmove.prevent="onSlotTouchMove"
+          @touchend="onSlotMouseUp"
+        >
+          <div style="font-size:12px;color:#475569;font-weight:600">{{ rowLabel(row) }}</div>
+          <div style="width:100%;display:flex;flex-direction:column;align-items:flex-start;line-height:1.3;">
+            <span>{{ cellLabel(activeDay,row) || '可预约' }}</span>
+            <span v-if="cellPending(activeDay,row)" style="font-size:11px;color:#ff9500;margin-top:2px">审核中</span>
+          </div>
         </div>
       </div>
     </div>
@@ -538,7 +598,7 @@
 </div>
 
 <script>
-const { createApp, computed, ref } = Vue
+const { createApp, computed, ref, reactive, onMounted, onBeforeUnmount } = Vue
 
 function toISO(dt){ const d=new Date(dt); d.setSeconds(0,0); return d.toISOString() }
 function toLocalISOString(dt){
@@ -595,6 +655,7 @@ createApp({
     })
 
     const selection = ref(null) // {start, end}
+    const dragState = reactive({ active: false, anchorRow: null })
     const slotMinutes = ref(15)
     const reservationNotes = ref('') // 预约备注
 
@@ -663,17 +724,37 @@ createApp({
       })
     }
 
+    function findReservationForSlot(start, end) {
+      return reservations.value.find(r => 
+        new Date(r.start_time) < end &&
+        new Date(r.end_time) > start &&
+        r.status !== 'cancelled' &&
+        r.status !== 'rejected'
+      )
+    }
+
+    function slotStateForRange(start, end) {
+      const now = new Date()
+      if (start < now) return 'blocked'
+      const resv = findReservationForSlot(start, end)
+      if(resv) return 'booked'
+      if(!allowedForUser(start, end)) return 'blocked'
+      if(!isWithinBookingHours(start, end)) return 'blocked'
+      return 'free'
+    }
+
+    function slotState(day, row) {
+      const s = cellTime(day, row)
+      const e = addMinutes(s, slotMinutes.value)
+      return slotStateForRange(s, e)
+    }
+
     function cellClass(day, row){
       const s = cellTime(day, row)
       const e = addMinutes(s, slotMinutes.value)
-      const now = new Date()
-      if (s < now) return 'blocked'
-      const resv = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status !== 'cancelled' && r.status !== 'rejected')
-      if(resv) return 'booked'
-      if(!allowedForUser(s, e)) return 'blocked'
-      if(!isWithinBookingHours(s, e)) return 'blocked'
-      if(selection.value && s >= selection.value.start && e <= selection.value.end) return 'selected'
-      return 'free'
+      const base = slotStateForRange(s, e)
+      if(base === 'free' && selection.value && s >= selection.value.start && e <= selection.value.end) return 'selected'
+      return base
     }
 
     // 检查是否在可预约时间内
@@ -1021,7 +1102,7 @@ createApp({
 
     function cellLabel(day,row){
       const s = cellTime(day,row); const e = addMinutes(s,slotMinutes.value)
-      const r = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status!=='cancelled' && r.status!=='rejected')
+      const r = findReservationForSlot(s, e)
       if(!r) return ''
       const name = r.employee_name || '已预约'
       const note = (r.notes && String(r.notes).trim()) ? `（${r.notes}）` : ''
@@ -1029,7 +1110,7 @@ createApp({
     }
     function cellTooltip(day,row){
       const s = cellTime(day,row); const e = addMinutes(s,slotMinutes.value)
-      const r = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status!=='cancelled' && r.status!=='rejected')
+      const r = findReservationForSlot(s, e)
       if(!r) return ''
       const name = r.employee_name || ''
       const note = (r.notes && String(r.notes).trim()) ? `（${r.notes}）` : ''
@@ -1038,7 +1119,7 @@ createApp({
 
     function cellPending(day,row){
       const s = cellTime(day,row); const e = addMinutes(s,slotMinutes.value)
-      const r = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status!=='cancelled' && r.status!=='rejected')
+      const r = findReservationForSlot(s, e)
       return !!(r && r.status === 'pending')
     }
 
