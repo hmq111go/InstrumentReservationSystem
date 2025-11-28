@@ -589,9 +589,19 @@
                         }
                     }
 
-                    // 将布尔转换为选择框使用的字符串
-                    found.booking_enabled = String(found.booking_enabled)
-                    found.requires_approval = String(found.requires_approval)
+                    const normalizeBoolSelect = (value, fallback = 'false') => {
+                        if (typeof value === 'boolean') return value ? 'true' : 'false'
+                        if (value === 1 || value === '1') return 'true'
+                        if (value === 0 || value === '0') return 'false'
+                        const normalized = String(value ?? '').toLowerCase()
+                        if (normalized === 'true') return 'true'
+                        if (normalized === 'false') return 'false'
+                        return fallback
+                    }
+
+                    // 将布尔或数值转换为选择框使用的 'true'/'false'
+                    found.booking_enabled = normalizeBoolSelect(found.booking_enabled, 'true')
+                    found.requires_approval = normalizeBoolSelect(found.requires_approval, 'false')
 
                     // 日期转成 input[type=date] 需要的值
                     found.production_date = toDateInput(found.production_date)
@@ -784,7 +794,12 @@
                 }
 
                 // 将选择框的字符串 'true'/'false' 转为布尔
-                const strToBool = (v) => String(v) === 'true'
+                const strToBool = (v) => {
+                    if (typeof v === 'boolean') return v
+                    if (v === 1 || v === '1') return true
+                    if (v === 0 || v === '0') return false
+                    return String(v).toLowerCase() === 'true'
+                }
                 model.booking_enabled = strToBool(model.booking_enabled)
                 model.requires_approval = strToBool(model.requires_approval)
 
