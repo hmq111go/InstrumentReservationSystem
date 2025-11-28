@@ -1181,6 +1181,10 @@ def create_app():
                 data["slot_minutes"] = int(data["slot_minutes"]) or 15
             except Exception:
                 data["slot_minutes"] = 15
+        # normalize boolean flags
+        for field, default in [("booking_enabled", "true"), ("requires_approval", "false")]:
+            if field in data:
+                data[field] = normalize_bool_flag(data[field], default)
         inst = Instrument(**data)
         s.add(inst)
         s.commit()
@@ -1237,6 +1241,9 @@ def create_app():
                 data["slot_minutes"] = int(data["slot_minutes"]) or 15
             except Exception:
                 data["slot_minutes"] = 15
+        for field, default in [("booking_enabled", "true"), ("requires_approval", "false")]:
+            if field in data:
+                data[field] = normalize_bool_flag(data[field], default)
         old_name = inst.name
         for k, v in data.items():
             setattr(inst, k, v)
@@ -1770,7 +1777,7 @@ def create_app():
         # 规则：
         # - 若仪器开启审批：保管员本人预约则直批通过，其余用户为待审批
         # - 若仪器未开启审批：直接通过
-        requires_approval = inst.requires_approval == "true"
+        requires_approval = bool_from_flag(getattr(inst, "requires_approval", "false"))
         is_keeper_self_booking = bool(getattr(inst, "keeper_id", None)) and (target_user_id == inst.keeper_id)
 
         res = Reservation(
@@ -2112,7 +2119,7 @@ def create_app():
         # 检查仪器是否需要审批，与创建逻辑保持一致：
         # - 开启审批：保管员本人修改则直批通过，其余为待审批
         # - 未开启审批：直接通过
-        requires_approval = inst.requires_approval == "true"
+        requires_approval = bool_from_flag(getattr(inst, "requires_approval", "false"))
         is_keeper_self_booking = bool(getattr(inst, "keeper_id", None)) and (res.user_id == inst.keeper_id)
         res.status = ("approved" if (not requires_approval or is_keeper_self_booking) else "pending")
         s.commit()
@@ -2190,6 +2197,33 @@ def create_app():
             return fallback_name
         finally:
             s.close()
+
+    def normalize_bool_flag(value, default="false"):
+        """Return canonical 'true'/'false' string for mixed input types."""
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if value in (1, "1"):
+            return "true"
+        if value in (0, "0"):
+            return "false"
+        if value is None:
+            return default
+        text = str(value).strip().lower()
+        if text in ("true", "yes", "on"):
+            return "true"
+        if text in ("false", "no", "off"):
+            return "false"
+        return default
+
+    def bool_from_flag(value):
+        """Interpret mixed flag values as boolean True/False."""
+        if isinstance(value, bool):
+            return value
+        if value in (1, "1"):
+            return True
+        if value in (0, "0"):
+            return False
+        return str(value or "").strip().lower() == "true"
 
     def serialize_instrument(i: "Instrument"):
         return {
@@ -2332,7 +2366,7 @@ def create_app():
                 # 非维护期：若状态因维护被置为维护，则恢复为 active，并启用预约
                 if inst.status == "maintenance":
                     inst.status = "active"
-                if inst.booking_enabled == "false":
+                if not bool_from_flag(getattr(inst, "booking_enabled", "true")):
                     # 仅在维护导致暂停时自动恢复，这里简单恢复为可预约
                     inst.booking_enabled = "true"
             s.commit()
@@ -2882,13 +2916,13 @@ def create_app():
         data = request.json or {}
 
         if "booking_enabled" in data:
-            instrument.booking_enabled = data["booking_enabled"]
+            instrument.booking_enabled = normalize_bool_flag(data["booking_enabled"], "true")
         if "booking_start_time" in data:
             instrument.booking_start_time = data["booking_start_time"]
         if "booking_end_time" in data:
             instrument.booking_end_time = data["booking_end_time"]
         if "requires_approval" in data:
-            instrument.requires_approval = data["requires_approval"]
+            instrument.requires_approval = normalize_bool_flag(data["requires_approval"], "false")
 
         s.commit()
         return jsonify(serialize_instrument(instrument))
