@@ -302,6 +302,7 @@
         <thead>
           <tr>
             <th>仪器名称</th>
+            <th>型号</th>
             <th>开始日期</th>
             <th>结束日期</th>
             <th>维护类型</th>
@@ -318,6 +319,11 @@
                 <span class="badge name-badge" style="background: rgba(0,122,255,0.06); border-color: rgba(0,122,255,0.25); color: #0352ad;">
                   {{ getInstrumentName(m.instrument_id) }}
                 </span>
+              </div>
+            </td>
+            <td>
+              <div class="cell" style="justify-content:center;" :title="getInstrumentModel(m.instrument_id)">
+                <span class="truncate">{{ getInstrumentModel(m.instrument_id) || '-' }}</span>
               </div>
             </td>
             <td>
@@ -529,6 +535,7 @@ createApp({
     })
 
     function getInstrumentName(id){ const it = instruments.value.find(x=>x.id===id); return it ? it.name : id }
+    function getInstrumentModel(id){ const it = instruments.value.find(x=>x.id===id); return it ? (it.model || '') : '' }
     function getUserName(id){ const u = userMap.value[id]; return u ? u.name : id }
     function getTypeText(t){ return ({general:'日常维护',repair:'维修',calibration:'校准',inspection:'巡检'})[t] || t }
     function formatDateTime(s){ return s ? new Date(s).toLocaleString() : '' }
@@ -693,7 +700,7 @@ createApp({
 
     return { user, userLoaded, isManagerOrAdmin, isSuperAdmin, isKeeper, isActive,
       instruments, userMap, records, pagination, filterInstrumentId, filterType, filterStartDate, filterEndDate, visiblePages, hasActiveFilters,
-      getInstrumentName, getUserName, getTypeText, typeBadgeClass, statusBadgeClass, formatDateTime, formatDate,
+      getInstrumentName, getInstrumentModel, getUserName, getTypeText, typeBadgeClass, statusBadgeClass, formatDateTime, formatDate,
       goToPage, search, refresh, clearFilters, exportMaintenance, markDone, deleteRecord, isUpdating,
       showCreate, form, openCreate, cancel, save, showEdit, editForm, openEdit, cancelEdit, saveEdit }
   }
