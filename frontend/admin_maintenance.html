@@ -255,7 +255,7 @@
           <div class="control cu-control cu-select">
             <select v-model="filterInstrumentId" :class="{placeholder: filterInstrumentId===''}">
               <option value="">选择仪器…</option>
-              <option v-for="i in instruments" :key="i.id" :value="i.id">{{ i.name }}</option>
+              <option v-for="i in instruments" :key="i.id" :value="i.id">{{ i.name }}（{{ i.model }}）</option>
             </select>
           </div>
         </div>
@@ -405,7 +405,7 @@
             <label><span>仪器名称</span>
               <select v-model="editForm.instrument_id">
                 <option value="" disabled>请选择仪器</option>
-                <option v-for="i in instruments" :key="i.id" :value="i.id">{{ i.name }}</option>
+                <option v-for="i in instruments" :key="i.id" :value="i.id">{{ i.name }}（{{ i.model }}）</option>
               </select>
             </label>
             <label><span>维护开始日期</span>
@@ -447,7 +447,7 @@
             <label><span>仪器名称</span>
               <select v-model="form.instrument_id">
                 <option value="" disabled>请选择仪器</option>
-                <option v-for="i in instruments" :key="i.id" :value="i.id">{{ i.name }}</option>
+                <option v-for="i in instruments" :key="i.id" :value="i.id">{{ i.name }}（{{ i.model }}）</option>
               </select>
             </label>
             <label><span>维护开始日期</span>
