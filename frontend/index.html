@@ -517,7 +517,7 @@
     </div>
     <div class="slot-column" @mouseleave="cancelDrag">
       <div
-        v-for="row in totalRows"
+        v-for="row in visibleRows"
         :key="row"
         :data-row="row"
         :class="['slot-single', cellClass(activeDay, row)]"
@@ -728,6 +728,21 @@ createApp({
       const { startMinutes, endMinutes } = bookingWindow.value
       const duration = Math.max(endMinutes - startMinutes, step)
       return Math.max(1, Math.floor(duration / step))
+    })
+
+    // 过滤掉过去的时间段，只显示未来和当前的时间段
+    const visibleRows = computed(() => {
+      const now = new Date()
+      now.setSeconds(0, 0)
+      const rows = []
+      for(let row = 1; row <= totalRows.value; row++) {
+        const s = cellTime(activeDay.value, row)
+        s.setSeconds(0, 0)
+        if(s >= now) {
+          rows.push(row)
+        }
+      }
+      return rows
     })
 
     function cellTime(day, row){
@@ -1097,14 +1112,18 @@ createApp({
       for(let mins=startMinutes; mins<endMinutes; mins+=slotMinutes.value){
         const s = new Date(dayStart)
         s.setHours(Math.floor(mins/60), mins%60, 0, 0)
+        s.setSeconds(0, 0)
         const e = new Date(s)
         e.setMinutes(e.getMinutes()+slotMinutes.value)
+        
+        // 过滤掉过去的时间段，不显示
+        if (s < now) {
+          continue
+        }
+        
         const resv = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status !== 'cancelled' && r.status !== 'rejected')
         let className = 'free'
-        // 检查是否是过去时间 - 使用与桌面端相同的逻辑
-        if (s < now) {
-          className = 'blocked'
-        } else if (resv) {
+        if (resv) {
           className = 'booked'
         } else if (!isWithinBookingHours(s, e)) {
           className = 'blocked'
@@ -1330,7 +1349,7 @@ createApp({
       }
     })
     
-    return { api, showApiBar, saveAPI, instruments, employees, reservations, myReservations, search, selectedInstrumentId, selectInstrument, weekDays, weekTitle, prevWeek, nextWeek, thisWeek, cellClass, selectedRangeText, createReservation, canReserve, loadInstruments, approve, reject, cancel, formatDT, seedIfEmpty, cellLabel, cellTooltip, cellPending, totalRows, rowLabel, rowStartLabel, isLoggedIn, user, token, headers, checkLoginStatus, goToLogin, getRoleText, goBack, isMobileReserve, currentInstrument, mobileSlots, mobileClickSlot, mobileReserve, mobileDateLabel, mobilePrevDay, mobileNextDay, dayReservations, isWithinBookingHours, getMaintenanceTypeText, getStatusCn, reservationNotes, activeDay, onSlotMouseDown, onSlotMouseEnter, onSlotMouseUp, onSlotTouchStart, onSlotTouchMove, cancelDrag, mobileOnTouchStart, mobileOnTouchMove, mobileOnTouchEnd }
+    return { api, showApiBar, saveAPI, instruments, employees, reservations, myReservations, search, selectedInstrumentId, selectInstrument, weekDays, weekTitle, prevWeek, nextWeek, thisWeek, cellClass, selectedRangeText, createReservation, canReserve, loadInstruments, approve, reject, cancel, formatDT, seedIfEmpty, cellLabel, cellTooltip, cellPending, totalRows, visibleRows, rowLabel, rowStartLabel, isLoggedIn, user, token, headers, checkLoginStatus, goToLogin, getRoleText, goBack, isMobileReserve, currentInstrument, mobileSlots, mobileClickSlot, mobileReserve, mobileDateLabel, mobilePrevDay, mobileNextDay, dayReservations, isWithinBookingHours, getMaintenanceTypeText, getStatusCn, reservationNotes, activeDay, onSlotMouseDown, onSlotMouseEnter, onSlotMouseUp, onSlotTouchStart, onSlotTouchMove, cancelDrag, mobileOnTouchStart, mobileOnTouchMove, mobileOnTouchEnd }
   }
 }).mount('#app')
 </script>
