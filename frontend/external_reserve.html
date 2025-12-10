@@ -106,6 +106,12 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--border-light); border-radius: 3px; }
     ::-webkit-scrollbar-thumb { background: var(--text-tertiary); border-radius: 3px; }
+    
+    /* Mobile scrollbar - wider */
+    @media (max-width: 768px) {
+      ::-webkit-scrollbar { width: 12px; }
+      .slot-list::-webkit-scrollbar { width: 12px; }
+    }
   </style>
   <script>
     function toLocalISOString(d){
@@ -314,6 +320,13 @@
               const startSlot = slots.value[low]
               const endSlot = slots.value[high]
               selection.value = { start: startSlot.s, end: endSlot.e }
+              
+              // 自动滚动到当前选中的时间段
+              setTimeout(() => {
+                if(slotEl && slotEl.scrollIntoView) {
+                  slotEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                }
+              }, 0)
             }
           }
 
@@ -373,10 +386,19 @@
               const e = new Date(s); e.setMinutes(e.getMinutes() + slotMinutes.value)
               const slotEndMinutes = e.getHours()*60 + e.getMinutes()
               if(slotEndMinutes > bookingEndMinutes) continue
-              if(s < now) continue
+              
               const resv = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status!=='cancelled' && r.status!=='rejected')
               let className = 'free'
-              if(resv){
+              
+              // 判断时间段状态：过去时间显示为不可约
+              const nowTime = new Date(now)
+              nowTime.setSeconds(0, 0)
+              const slotTime = new Date(s)
+              slotTime.setSeconds(0, 0)
+              
+              if(slotTime < nowTime){
+                className = 'blocked'
+              } else if(resv){
                 className = 'booked'
                 if(user.value && user.value.id && resv.employee_id === user.value.id){ className += ' my-reservation' }
               }

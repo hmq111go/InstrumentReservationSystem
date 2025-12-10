@@ -461,6 +461,17 @@
     ::-webkit-scrollbar-thumb:hover {
       background: var(--text-secondary);
     }
+
+    /* Mobile scrollbar - wider */
+    @media (max-width: 768px) {
+      ::-webkit-scrollbar {
+        width: 12px;
+      }
+      
+      .slot-list::-webkit-scrollbar {
+        width: 12px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -502,7 +513,7 @@
     </div>
     <div class="booking-hint" v-if="selectedInstrumentId">
       <span class="booking-hint-icon">💡</span>
-      <span><strong>预约提示：</strong>点击绿色时间段并向下拖拽可选择多个连续时间段，选中的时间段会高亮显示</span>
+      <span><strong>预约提示：</strong>点击绿色时间段并向右拖拽可选择多个连续时间段，选中的时间段会高亮显示</span>
     </div>
     <div class="slot-column" @mouseleave="cancelDrag">
       <div
@@ -724,7 +735,9 @@ createApp({
       dt.setHours(0, 0, 0, 0)
       const offset = bookingWindow.value.startMinutes + (row-1) * slotMinutes.value
       const safeOffset = Math.min(offset, bookingWindow.value.endMinutes - slotMinutes.value)
-      dt.setMinutes(safeOffset)
+      const hours = Math.floor(safeOffset / 60)
+      const minutes = safeOffset % 60
+      dt.setHours(hours, minutes, 0, 0)
       return dt
     }
 
@@ -760,7 +773,11 @@ createApp({
 
     function slotStateForRange(start, end) {
       const now = new Date()
-      if (start < now) return 'blocked'
+      now.setSeconds(0, 0) // 清除秒和毫秒，确保比较准确
+      // 确保 start 和 end 也没有秒和毫秒
+      const startTime = new Date(start)
+      startTime.setSeconds(0, 0)
+      if (startTime < now) return 'blocked'
       const resv = findReservationForSlot(start, end)
       if(resv) return 'booked'
       if(!allowedForUser(start, end)) return 'blocked'
@@ -1149,6 +1166,13 @@ createApp({
         const startSlot = mobileSlots.value[low]
         const endSlot = mobileSlots.value[high]
         selection.value = { start: startSlot.s, end: endSlot.e }
+        
+        // 自动滚动到当前选中的时间段
+        setTimeout(() => {
+          if(slotEl && slotEl.scrollIntoView) {
+            slotEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+          }
+        }, 0)
       }
     }
 
@@ -1219,6 +1243,14 @@ createApp({
       if(!dragState.active || dragState.anchorRow === null) return
       if(!rangeHasOnlyFreeRows(dragState.anchorRow, row)) return
       updateSelectionRange(dragState.anchorRow, row)
+      
+      // 自动滚动到当前选中的时间段（桌面端）
+      setTimeout(() => {
+        const slotEl = document.querySelector(`.slot-single[data-row="${row}"]`)
+        if(slotEl && slotEl.scrollIntoView) {
+          slotEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+      }, 0)
     }
 
     function finishDrag(){

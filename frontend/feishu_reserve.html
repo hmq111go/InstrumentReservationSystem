@@ -247,6 +247,17 @@
     ::-webkit-scrollbar-thumb:hover {
       background: var(--text-secondary);
     }
+
+    /* Mobile scrollbar - wider */
+    @media (max-width: 768px) {
+      ::-webkit-scrollbar {
+        width: 12px;
+      }
+      
+      .slot-list::-webkit-scrollbar {
+        width: 12px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -405,14 +416,18 @@ createApp({
         // 调试信息：打印所有时间段和判断结果
         console.log(`时间段 ${s.getHours()}:${String(s.getMinutes()).padStart(2,'0')}-${e.getHours()}:${String(e.getMinutes()).padStart(2,'0')} (${slotStartMinutes}-${slotEndMinutes}) 在范围 (${bookingStartMinutes}-${bookingEndMinutes}) 内`)
         
-        // 过滤掉过去的时间段，直接隐藏
-        if (s < now) continue
-        
         const resv = reservations.value.find(r=> new Date(r.start_time) < e && new Date(r.end_time) > s && r.status!=='cancelled' && r.status!=='rejected')
         let className = 'free'
         
-        // 判断时间段状态：只显示可预约和已预约的时间段
-        if (resv) {
+        // 判断时间段状态：过去时间显示为不可约
+        const nowTime = new Date(now)
+        nowTime.setSeconds(0, 0)
+        const slotTime = new Date(s)
+        slotTime.setSeconds(0, 0)
+        
+        if (slotTime < nowTime) {
+          className = 'blocked'
+        } else if (resv) {
           className = 'booked'
           // 如果是当前用户的预约，添加特殊样式
           if (user.value && user.value.id && resv.employee_id === user.value.id) {
@@ -490,6 +505,13 @@ createApp({
         const startSlot = slots.value[low]
         const endSlot = slots.value[high]
         selection.value = { start: startSlot.s, end: endSlot.e }
+        
+        // 自动滚动到当前选中的时间段
+        setTimeout(() => {
+          if(slotEl && slotEl.scrollIntoView) {
+            slotEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+          }
+        }, 0)
       }
     }
 
