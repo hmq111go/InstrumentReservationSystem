@@ -279,8 +279,17 @@
     <button class="btn ghost" @click="nextDay">后一天 ▶</button>
   </div>
 
-  <div class="slot-list">
-    <div v-for="slot in slots" :key="slot.key" class="slot-item" :class="slot.className" @click="clickSlot(slot)">
+  <div class="slot-list" @touchmove.prevent="onTouchMove" @touchend="onTouchEnd">
+    <div 
+      v-for="(slot, index) in slots" 
+      :key="slot.key" 
+      :data-index="index"
+      class="slot-item" 
+      :class="slot.className" 
+      @touchstart.prevent="onTouchStart(slot, index, $event)"
+      @touchmove.prevent="onTouchMove"
+      @touchend="onTouchEnd"
+    >
       <div>
         <div style="font-weight:600">{{ slot.label }}</div>
         <div v-if="slot.resv" style="font-size:12px;color:#475569">
@@ -320,7 +329,7 @@
 </div>
 
 <script>
-const { createApp, ref, computed } = Vue
+const { createApp, ref, computed, reactive } = Vue
 function toISO(dt){ const d=new Date(dt); d.setSeconds(0,0); return d.toISOString() }
 function toLocalISOString(dt){
   const d = new Date(dt)
@@ -347,6 +356,7 @@ createApp({
     const viewDate = ref(new Date(new Date().setHours(0,0,0,0)))
     const reservations = ref([])
     const selection = ref(null)
+    const dragState = reactive({ active: false, anchorIndex: null })
     const slotMinutes = ref(15)
     const reservationNotes = ref('') // 预约备注
 
@@ -442,6 +452,51 @@ createApp({
       else if(s.getTime()===selection.value.end.getTime()) selection.value.end=e
       else selection.value={start:s,end:e}
     }
+
+    function onTouchStart(slot, index, event){
+      if(slot.resv || slot.className === 'blocked') return
+      dragState.active = true
+      dragState.anchorIndex = index
+      const s = slot.s, e = slot.e
+      selection.value = { start: s, end: e }
+    }
+
+    function onTouchMove(event){
+      if(!dragState.active || dragState.anchorIndex === null) return
+      const touch = event.touches && event.touches[0]
+      if(!touch) return
+      const target = document.elementFromPoint(touch.clientX, touch.clientY)
+      if(!target || !target.closest) return
+      const slotEl = target.closest('.slot-item[data-index]')
+      if(!slotEl) return
+      const index = Number(slotEl.dataset.index)
+      if(index === null || Number.isNaN(index)) return
+      
+      const anchorIndex = dragState.anchorIndex
+      const low = Math.min(anchorIndex, index)
+      const high = Math.max(anchorIndex, index)
+      
+      // 检查范围内是否都是可预约的
+      let allFree = true
+      for(let i = low; i <= high; i++){
+        const slot = slots.value[i]
+        if(!slot || slot.resv || slot.className === 'blocked'){
+          allFree = false
+          break
+        }
+      }
+      
+      if(allFree && slots.value[low] && slots.value[high]){
+        const startSlot = slots.value[low]
+        const endSlot = slots.value[high]
+        selection.value = { start: startSlot.s, end: endSlot.e }
+      }
+    }
+
+    function onTouchEnd(){
+      dragState.active = false
+      dragState.anchorIndex = null
+    }
     const canReserve = computed(()=> {
       if(!token.value || !selection.value) return false
       const aligned = selection.value.start.getMinutes()%slotMinutes.value===0 && selection.value.end.getMinutes()%slotMinutes.value===0
@@ -529,7 +584,7 @@ createApp({
       const m = { pending:'审核中', approved:'已通过', rejected:'已驳回', cancelled:'已取消' }
       return m[status] || status
     }
-    return { user, instr, isFeishu, dateLabel, prevDay, nextDay, slots, clickSlot, canReserve, reserve, cancelReservation, goBack, formatDT, getMaintenanceTypeText, getStatusCn, reservationNotes }
+    return { user, instr, isFeishu, dateLabel, prevDay, nextDay, slots, clickSlot, canReserve, reserve, cancelReservation, goBack, formatDT, getMaintenanceTypeText, getStatusCn, reservationNotes, onTouchStart, onTouchMove, onTouchEnd }
   }
 }).mount('#app')
 </script>

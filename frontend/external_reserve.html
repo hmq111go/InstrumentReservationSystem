@@ -131,6 +131,7 @@
           const reservations = ref([])
           const viewDate = ref(new Date())
           const selection = ref(null)
+          const dragState = reactive({ active: false, anchorIndex: null })
           const reservationNotes = ref('')
           const name = ref('')
           const password = ref('')
@@ -276,6 +277,51 @@
             else selection.value={start:s,end:e}
           }
 
+          function onTouchStart(slot, index, event){
+            if(slot.resv || slot.className === 'blocked') return
+            dragState.active = true
+            dragState.anchorIndex = index
+            const s = slot.s, e = slot.e
+            selection.value = { start: s, end: e }
+          }
+
+          function onTouchMove(event){
+            if(!dragState.active || dragState.anchorIndex === null) return
+            const touch = event.touches && event.touches[0]
+            if(!touch) return
+            const target = document.elementFromPoint(touch.clientX, touch.clientY)
+            if(!target || !target.closest) return
+            const slotEl = target.closest('.slot-item[data-index]')
+            if(!slotEl) return
+            const index = Number(slotEl.dataset.index)
+            if(index === null || Number.isNaN(index)) return
+            
+            const anchorIndex = dragState.anchorIndex
+            const low = Math.min(anchorIndex, index)
+            const high = Math.max(anchorIndex, index)
+            
+            // 检查范围内是否都是可预约的
+            let allFree = true
+            for(let i = low; i <= high; i++){
+              const slot = slots.value[i]
+              if(!slot || slot.resv || slot.className === 'blocked'){
+                allFree = false
+                break
+              }
+            }
+            
+            if(allFree && slots.value[low] && slots.value[high]){
+              const startSlot = slots.value[low]
+              const endSlot = slots.value[high]
+              selection.value = { start: startSlot.s, end: endSlot.e }
+            }
+          }
+
+          function onTouchEnd(){
+            dragState.active = false
+            dragState.anchorIndex = null
+          }
+
           async function reserve(){
             if(!canReserve.value) return alert('请选择可用的时间段再提交');
             if(!(user.value && user.value.id)) return alert('请先登录')
@@ -350,7 +396,7 @@
             return aligned && selection.value.start >= new Date()
           })
           
-          return { api, token, user, instruments, filteredInstruments, searchQuery, instrumentId, instr, reservations, viewDate, selection, reservationNotes, name, password, registerMode, slotMinutes, headers, externalLogin, loadReservations, loadInstrument, onInstrumentChange, reserve, slots, clickSlot, prevDay, nextDay, canReserve, cancelReservation, searchInstruments }
+          return { api, token, user, instruments, filteredInstruments, searchQuery, instrumentId, instr, reservations, viewDate, selection, reservationNotes, name, password, registerMode, slotMinutes, headers, externalLogin, loadReservations, loadInstrument, onInstrumentChange, reserve, slots, clickSlot, prevDay, nextDay, canReserve, cancelReservation, searchInstruments, onTouchStart, onTouchMove, onTouchEnd }
         }
       }).mount('#app')
     })
@@ -393,8 +439,17 @@
       </div>
     </div>
 
-    <div class="slot-list">
-      <div v-for="t in slots" :key="t.key" class="slot-item" :class="t.className" @click="clickSlot(t)">
+    <div class="slot-list" @touchmove.prevent="onTouchMove" @touchend="onTouchEnd">
+      <div 
+        v-for="(t, index) in slots" 
+        :key="t.key" 
+        :data-index="index"
+        class="slot-item" 
+        :class="t.className" 
+        @touchstart.prevent="onTouchStart(t, index, $event)"
+        @touchmove.prevent="onTouchMove"
+        @touchend="onTouchEnd"
+      >
         <div>
           <div style="font-weight:600">{{ t.label }}</div>
           <div v-if="t.resv" style="font-size:12px;color:#475569">
